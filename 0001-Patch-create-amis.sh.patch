@@ -1,0 +1,51 @@
+From f2fdbb8c028e61f245e79e42ec7e482efee3c238 Mon Sep 17 00:00:00 2001
+From: Armando Santos <armandoifsantos@gmail.com>
+Date: Mon, 16 May 2022 18:17:53 +0100
+Subject: [PATCH] Patch create-amis.sh
+
+---
+ nixos/maintainers/scripts/ec2/create-amis.sh | 26 +++++++++++++-------
+ 1 file changed, 17 insertions(+), 9 deletions(-)
+
+diff --git a/nixos/maintainers/scripts/ec2/create-amis.sh b/nixos/maintainers/scripts/ec2/create-amis.sh
+index 797fe03e209..e4db3c753bb 100755
+--- a/nixos/maintainers/scripts/ec2/create-amis.sh
++++ b/nixos/maintainers/scripts/ec2/create-amis.sh
+@@ -21,17 +21,25 @@ set -euo pipefail
+ var () { true; }
+ 
+ # configuration
+-var ${state_dir:=$HOME/amis/ec2-images}
+-var ${home_region:=eu-west-1}
+-var ${bucket:=nixos-amis}
++var ${state_dir:=$PWD/amis/ec2-images} # If having caching issues delete the contents of
++                                       # this folder
++var ${home_region:=eu-west-1}          # Ought to be the same region as the Terraform AWS
++                                       # provider
++var ${bucket:=test-ami-nixos-bucket-2} # Needs to be the same as specified in the
++                                       # Terraform config
+ var ${service_role_name:=vmimport}
+ 
+-var ${regions:=eu-west-1 eu-west-2 eu-west-3 eu-central-1 eu-north-1
+-         us-east-1 us-east-2 us-west-1 us-west-2
+-         ca-central-1
+-         ap-southeast-1 ap-southeast-2 ap-northeast-1 ap-northeast-2
+-         ap-south-1 ap-east-1
+-         sa-east-1}
++# Regions to upload the NixOS AMIs
++var ${regions:=
++         us-west-1
++         us-east-2
++         ap-northeast-1
++         ap-southeast-1
++         ap-southeast-2
++         sa-east-1
++         af-south-1
++         eu-west-3
++     }
+ 
+ regions=($regions)
+ 
+-- 
+2.33.3
+
