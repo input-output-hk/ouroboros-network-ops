@@ -1,11 +1,11 @@
 ## TODOs
 
-- [] Remove NixOS AMI generation dependency
+- [x] Remove NixOS AMI generation dependency
   - [x] PR to nixpkgs adding the all the regions currently available in order to get NixOS
     AMIs available on them
-  - [] Make sure that the AMIs are available
-  - [] Refactor the Terraform config to just use the available AMIs instead of generating
-       them
+  - [x] Make sure that the AMIs are available
+  - [x] Refactor the Terraform config to just use the available AMIs instead of generating
+        them
 - [x] Figure out a way to hide the secrets
   - [x] Change personal AWS tokens (due to commit history)
   - [x] confirm that IOHK tokens have never been committed
@@ -31,6 +31,9 @@ to those:
   if needed.
 - After that get the AMIs for each region and add them to terraform configuration
 
+_**NOTE:** As of NixOS 22.05 release, AMIs for all AWS regions are available, so this step
+is no longer needed_
+
 ## How to deploy
 
 In folder `dev-deployer-terraform`, there's `main.tf` that has the terraform
@@ -48,36 +51,39 @@ To run the terraform config from a clean AWS configuration do the following:
 - Make sure the account has the necessary permissions;
 - Make sure your credentials are correctly configured:
   - `aws configure`
-- Make sure you edit `main.tf` and `create-ami.sh` to be in sync (e.g. S3 Bucket name,
-  home-regions, etc.);
+- ~~Make sure you edit `main.tf` and `create-ami.sh` to be in sync (e.g. S3 Bucket name,
+  home-regions, etc.);~~
 - Do `terraform init`;
 - Do `terraform plan` to check you haven't forgotten anything;
 - If everything looks good do `terraform apply` and let it run;
 - After finished you should have:
-  - An S3 bucket;
-  - A role and policy called `vmimport`;
+  - ~~An S3 bucket;~~
+  - ~~A role and policy called `vmimport`;~~
   - A security role for each machine's region enabling traffic;
   - A key pair for each machine's region;
-  - A EC2 instance.
+  - An EC2 instance.
 
-Due to the way S3 buckets work if something goes wrong during the plan execution,
+~~Due to the way S3 buckets work if something goes wrong during the plan execution,
 you might not be able to perform `terraform destroy`. If that is the case you will have to
 delete all the stuff by hand if you want to rerun a script from a clean state. Maybe you can
 get without deleting everything and only the S3 bucket and then do `terraform destroy`. On
 the other hand if everything finishes successfully you will be able to perform `terraform
 destroy`, just make sure the bucket is empty before hand. NOTE: That the AMIs and
-respective snapshots won't get deleted so you will have to delete those by hand.
+respective snapshots won't get deleted so you will have to delete those by hand.~~
 
-I believe we'll only need to run the deployment once and if needed only rerun the script
+~~I believe we'll only need to run the deployment once and if needed only rerun the script
 to make NixOS AMIs available in new regions. For deployment we should run something like
-`terraform apply -target=resource`.
+`terraform apply -target=resource`.~~
+
+_**NOTE:** As of NixOS 22.05 release, AMIs for all AWS regions are available, so this
+information is no longer accurate_
 
 _THINGS TO HAVE IN MIND_:
 
-- The `create-ami.sh` script will cache things in `$PWD/ami/ec2-images` so you might want
-to delete that when trying to obtain a clean state;
-- You ought to rename the bucket if wanting to rerun the deployment from a previously
-deleted bucket since AWS might take some time to recognize that bucket was deleted.
+- ~~The `create-ami.sh` script will cache things in `$PWD/ami/ec2-images` so you might want
+to delete that when trying to obtain a clean state;~~
+- ~~You ought to rename the bucket if wanting to rerun the deployment from a previously
+deleted bucket since AWS might take some time to recognize that bucket was deleted.~~
 
 After having run the terraform configuration, you have to manually get the public ips
 for each machine and add them to the nixops network configuration file (inside folder
