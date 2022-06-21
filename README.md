@@ -21,15 +21,15 @@ to those:
   - au
   - br
 - Export AWS Secrets
-- For that we need an S3 bucket in each region and a set of specific IAM roles (https://docs.aws.amazon.com/vm-import/latest/userguide/vmimport-image-import.html)
-- It is not possible to copy official NixOS AMIs from other regions to the ones we need,
-  so we need to generate ours and upload them
-  - https://nixos.wiki/wiki/Install_NixOS_on_Amazon_EC2
-  - https://github.com/NixOS/nixpkgs/issues/85857
-  - The links above can help.
-  - Notes: change home_region, bucket and regions vars and edit lines to make_image_public
-  if needed.
-- After that get the AMIs for each region and add them to terraform configuration
+- ~~For that we need an S3 bucket in each region and a set of specific IAM roles (https://docs.aws.amazon.com/vm-import/latest/userguide/vmimport-image-import.html)~~
+- ~~It is not possible to copy official NixOS AMIs from other regions to the ones we need,
+  so we need to generate ours and upload them~~
+  - ~~https://nixos.wiki/wiki/Install_NixOS_on_Amazon_EC2~~
+  - ~~https://github.com/NixOS/nixpkgs/issues/85857~~
+  - ~~The links above can help.~~
+  - ~~Notes: change home_region, bucket and regions vars and edit lines to make_image_public
+  if needed.~~
+- ~~After that get the AMIs for each region and add them to terraform configuration~~
 
 _**NOTE:** As of NixOS 22.05 release, AMIs for all AWS regions are available, so this step
 is no longer needed_
@@ -37,10 +37,10 @@ is no longer needed_
 ## How to deploy
 
 In folder `dev-deployer-terraform`, there's `main.tf` that has the terraform
-configuration to deploy NixOS machines on different AWS regions. This
+configuration to deploy NixOS machines on different AWS regions. ~~This
 Terraform config also runs 2 bash commands: 1 to create a NixOS image,
 and a script to upload the image to an AWS bucket and import it as an image,
-making it available in all the regions necessary.
+making it available in all the regions necessary.~~
 
 To run the terraform config from a clean AWS configuration do the following:
 
@@ -78,7 +78,7 @@ to make NixOS AMIs available in new regions. For deployment we should run someth
 _**NOTE:** As of NixOS 22.05 release, AMIs for all AWS regions are available, so this
 information is no longer accurate_
 
-_THINGS TO HAVE IN MIND_:
+~~_THINGS TO HAVE IN MIND_:~~
 
 - ~~The `create-ami.sh` script will cache things in `$PWD/ami/ec2-images` so you might want
 to delete that when trying to obtain a clean state;~~
@@ -92,6 +92,28 @@ for each machine and add them to the nixops network configuration file (inside f
 You should be able to get the IPs for each regions by running the following command:
 
 `terraform show -json | jq '.values.root_module.child_modules[].resources[].values | "\(.availability_zone) : \(.public_ip)"' | grep -v "null : null"`
+
+_If one updates the NixOS version of the AMIs be sure to also update the nixpkgs version on
+niv to the same one._
+
+nixops will try to ssh into the machines as root so you might need to run:
+
+````
+> eval `ssh-agent`
+> ssh-add ssh-keys/id_rsa_aws
+````
+
+Please _NOTE_ that if the machine you're using to deploy (local machine) has a different
+or incompatible nixpkgs version with the one in the remote side (remote machine that is
+going to get deployed) - you will notice this with stange errors such as
+"service.zfs.expandOnBoot does not exist" - you will need to modify your deployment to use
+a different nix path. So after creating the deployment and if you get weird errors as the
+one described previously:
+
+- Run `niv show` to get the nixpkgs version and url;
+- Copy the nixpkgs url being used;
+- Run `nixops modify -I nixpkgs=<url> -d my-network network.nix`
+- Try again
 
 If you want to further configure each individual server you can look into:
 https://github.com/input-output-hk/cardano-node/blob/master/nix/nixos/cardano-node-service.nix#L136
