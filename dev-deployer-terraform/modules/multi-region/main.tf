@@ -1,11 +1,15 @@
 variable "ami" {}
 variable "instance_type" { default = "t3a.2xlarge" }
 
+# If universal access is needed from another machine this is the place to add it.
+#                                        ---v dev-deployer machine
+variable "allowed-to-access" { default = [ "3.124.147.122/32"
+                                         ] }
+
 terraform {
   required_providers {
     aws = {
       source = "hashicorp/aws"
-      version = "4.13.0"
     }
   }
 }
@@ -19,7 +23,7 @@ resource "aws_security_group" "allow_deployer" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["3.124.147.122/32"]
+    cidr_blocks = var.allowed-to-access
   }
 }
 
@@ -28,11 +32,19 @@ resource "aws_security_group" "allow_all" {
   #vpc_id      = aws_default_vpc.default.id
 
   ingress {
-    description = "allow all from 1024"
+    description = "allow all hosts to access any port greater than 1023 (IPv4)"
     from_port   = 1024
     to_port     = 65535
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "allow all hosts to access any port greater than 1023 (IPv6)"
+    from_port   = 1024
+    to_port     = 65535
+    protocol    = "tcp"
+    cidr_blocks = ["::/0"]
   }
 
   egress {

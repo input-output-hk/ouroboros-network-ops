@@ -5,7 +5,7 @@ let
   ifMainnet = mainnet: testnet: i: if i == 0 then mainnet else testnet;
 
   # import pinned niv sources
-  sources = import ./nix/sources.nix;
+  sources = import ../nix/sources.nix;
   pkgs    = import sources.nixpkgs { };
 
   # Double check if they are not pinned to the same version.
@@ -23,6 +23,9 @@ let
   ap-southeast-2 = "";
   ap-northeast-1 = "";
   eu-west-3      = "";
+
+  mainnet-port = 7776;
+  testnet-port = 7777;
 
 in
 {
@@ -42,6 +45,9 @@ in
 
       # Doesn't matter if we use the mainnet or testnet ones since we are going to
       # overwrite the cardano-node packages in the cardano-node service if needed.
+      #
+      # I am making t he assummption that it does not matter (at least for now) which
+      # service version we import here.
       cardano-node-mainnet.nixosModules.cardano-node
     ];
 
@@ -120,16 +126,16 @@ in
       instanceProducers =
         ifMainnet [ { accessPoints = [
                         { address = nodes.server-us-east.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = nodes.server-br.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = nodes.server-jp.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = nodes.server-au.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                       ];
                       advertise = false;
@@ -138,19 +144,19 @@ in
                   ]
                   [ { accessPoints = [
                         { address = nodes.server-us-east.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = nodes.server-br.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = nodes.server-jp.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = nodes.server-au.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = "13.52.93.226";
-                          port = 7777;
+                          port = testnet-port;
                         }
                       ];
                       advertise = false;
@@ -168,13 +174,13 @@ in
       instanceProducers =
         ifMainnet [ { accessPoints = [
                         { address = nodes.server-eu.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = nodes.server-us-west.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = nodes.server-br.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                       ];
                       advertise = false;
@@ -183,13 +189,13 @@ in
                   ]
                   [ { accessPoints = [
                         { address = nodes.server-eu.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = nodes.server-us-west.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = nodes.server-br.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = "3.142.182.220";
                           port = 3001;
@@ -210,13 +216,13 @@ in
       instanceProducers =
         ifMainnet [ { accessPoints = [
                         { address = nodes.server-sg.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = nodes.server-us-west.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = nodes.server-au.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                       ];
                       advertise = false;
@@ -225,16 +231,16 @@ in
                   ]
                   [ { accessPoints = [
                         { address = nodes.server-sg.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = nodes.server-us-west.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = nodes.server-au.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = "54.238.39.214";
-                          port = 7777;
+                          port = testnet-port;
                         }
                       ];
                       advertise = false;
@@ -252,16 +258,16 @@ in
       instanceProducers =
         ifMainnet [ { accessPoints = [
                         { address = nodes.server-sa.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = nodes.server-eu.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = nodes.server-au.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = nodes.server-jp.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                       ];
                       advertise = false;
@@ -270,19 +276,19 @@ in
                   ]
                   [ { accessPoints = [
                         { address = nodes.server-sa.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = nodes.server-eu.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = nodes.server-au.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = nodes.server-jp.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = "52.74.94.66";
-                          port = 7777;
+                          port = testnet-port;
                         }
                       ];
                       advertise = false;
@@ -300,13 +306,13 @@ in
       instanceProducers =
         ifMainnet [ { accessPoints = [
                         { address = nodes.server-sg.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = nodes.server-jp.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = nodes.server-us-west.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                       ];
                       advertise = false;
@@ -315,13 +321,13 @@ in
                   ]
                   [ { accessPoints = [
                         { address = nodes.server-sg.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = nodes.server-jp.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = nodes.server-us-west.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                       ];
                       advertise = false;
@@ -339,13 +345,13 @@ in
       instanceProducers =
         ifMainnet [ { accessPoints = [
                         { address = nodes.server-sa.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = nodes.server-us-west.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = nodes.server-us-east.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                       ];
                       advertise = false;
@@ -354,16 +360,16 @@ in
                   ]
                   [ { accessPoints = [
                         { address = nodes.server-sa.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = nodes.server-us-west.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = nodes.server-us-east.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = "18.229.177.239";
-                          port = 7777;
+                          port = testnet-port;
                         }
                       ];
                       advertise = false;
@@ -381,13 +387,13 @@ in
       instanceProducers =
         ifMainnet [ { accessPoints = [
                         { address = nodes.server-sg.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = nodes.server-br.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = nodes.server-eu.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                       ];
                       advertise = false;
@@ -396,13 +402,13 @@ in
                   ]
                   [ { accessPoints = [
                         { address = nodes.server-sg.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = nodes.server-br.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = nodes.server-eu.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                       ];
                       advertise = false;
@@ -420,19 +426,19 @@ in
       instanceProducers =
         ifMainnet [ { accessPoints = [
                         { address = nodes.server-sa.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = nodes.server-sg.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = nodes.server-us-east.config.deployment.targetHost;
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = "88.99.169.172";
-                          port = 7776;
+                          port = mainnet-port;
                         }
                         { address = "95.217.1.58";
-                          port = 7776;
+                          port = mainnet-port;
                         }
                       ];
                       advertise = false;
@@ -441,17 +447,17 @@ in
                   ]
                   [ { accessPoints = [
                         { address = nodes.server-sa.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = nodes.server-sg.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         { address = nodes.server-us-east.config.deployment.targetHost;
-                          port = 7777;
+                          port = testnet-port;
                         }
                         {
                           address = "88.99.169.172";
-                          port = 7777;
+                          port = testnet-port;
                         }
                         {
                           address = "18.169.36.236";
