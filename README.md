@@ -96,6 +96,18 @@ You should be able to get the IPs for each regions by running the following comm
 _If one updates the NixOS version of the AMIs be sure to also update the nixpkgs version on
 niv to the same one._
 
+Please _NOTE_ that if the machine you're using to deploy (local machine) has a different
+or incompatible nixpkgs version with the one in the remote side (remote machine that is
+going to get deployed) - you will notice this with stange errors such as
+"service.zfs.expandOnBoot does not exist" - you will need to modify your deployment to use
+a different nix path. So after creating the deployment and if you get weird errors as the
+one described previously:
+
+- Run `niv show` to get the nixpkgs version and url;
+- Copy the nixpkgs url being used;
+- Run `nixops modify -I nixpkgs=<url> -d my-network network.nix
+- Try again
+
 If you want to further configure each individual server you can look into:
 https://github.com/input-output-hk/cardano-node/blob/master/nix/nixos/cardano-node-service.nix#L136
 to see all the options available for configuration.
