@@ -1,0 +1,38 @@
+{
+    "cardano-node-mainnet": {
+        "branch": "master",
+        "description": "The core component that is used to participate in a Cardano decentralised blockchain.",
+        "homepage": "https://cardano.org",
+        "owner": "input-output-hk",
+        "repo": "cardano-node",
+        "rev": "ca78153653c19f4704fe7ce9a5a32297bf86a211",
+        "sha256": "1rah24gvbnyprlk3liq18vswxn1v1ypk61n2a48kn6w4y196h2jv",
+        "type": "tarball",
+        "url": "https://github.com/input-output-hk/cardano-node/archive/ca78153653c19f4704fe7ce9a5a32297bf86a211.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "cardano-node-testnet": {
+        "branch": "master",
+        "description": "The core component that is used to participate in a Cardano decentralised blockchain.",
+        "homepage": "https://cardano.org",
+        "owner": "input-output-hk",
+        "repo": "cardano-node",
+        "rev": "ca78153653c19f4704fe7ce9a5a32297bf86a211",
+        "sha256": "1rah24gvbnyprlk3liq18vswxn1v1ypk61n2a48kn6w4y196h2jv",
+        "type": "tarball",
+        "url": "https://github.com/input-output-hk/cardano-node/archive/ca78153653c19f4704fe7ce9a5a32297bf86a211.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "nixpkgs": {
+        "branch": "22.05",
+        "description": "Nix Packages collection",
+        "homepage": "",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "ce6aa13369b667ac2542593170993504932eb836",
+        "sha256": "0d643wp3l77hv2pmg2fi7vyxn4rwy0iyr8djcw1h5x72315ck9ik",
+        "type": "tarball",
+        "url": "https://github.com/NixOS/nixpkgs/archive/ce6aa13369b667ac2542593170993504932eb836.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    }
+}
