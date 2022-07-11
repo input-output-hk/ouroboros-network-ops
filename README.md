@@ -78,7 +78,7 @@ to make NixOS AMIs available in new regions. For deployment we should run someth
 _**NOTE:** As of NixOS 22.05 release, AMIs for all AWS regions are available, so this
 information is no longer accurate_
 
-_THINGS TO HAVE IN MIND_:
+~~_THINGS TO HAVE IN MIND_:~~
 
 - ~~The `create-ami.sh` script will cache things in `$PWD/ami/ec2-images` so you might want
 to delete that when trying to obtain a clean state;~~
@@ -98,8 +98,10 @@ niv to the same one._
 
 nixops will try to ssh into the machines as root so you might need to run:
 
-- `eval \`ssh-agent\``
-- `ssh-add ssh-keys/id_rsa_aws`
+````
+> eval `ssh-agent`
+> ssh-add ssh-keys/id_rsa_aws
+````
 
 Please _NOTE_ that if the machine you're using to deploy (local machine) has a different
 or incompatible nixpkgs version with the one in the remote side (remote machine that is
@@ -110,7 +112,7 @@ one described previously:
 
 - Run `niv show` to get the nixpkgs version and url;
 - Copy the nixpkgs url being used;
-- Run `nixops modify -I nixpkgs=<url> -d my-network network.nix
+- Run `nixops modify -I nixpkgs=<url> -d my-network network.nix`
 - Try again
 
 If you want to further configure each individual server you can look into:
