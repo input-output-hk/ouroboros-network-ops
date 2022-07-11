@@ -9,5 +9,7 @@ in pkgs.mkShell {
                         pkgs.ec2-api-tools
                         pkgs.ec2-ami-tools
                         pkgs.nixops
+                        pkgs.nix
+                        pkgs.wget
                       ];
                 }

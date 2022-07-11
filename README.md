@@ -96,6 +96,11 @@ You should be able to get the IPs for each regions by running the following comm
 _If one updates the NixOS version of the AMIs be sure to also update the nixpkgs version on
 niv to the same one._
 
+nixops will try to ssh into the machines as root so you might need to run:
+
+- `eval \`ssh-agent\``
+- `ssh-add ssh-keys/id_rsa_aws`
+
 Please _NOTE_ that if the machine you're using to deploy (local machine) has a different
 or incompatible nixpkgs version with the one in the remote side (remote machine that is
 going to get deployed) - you will notice this with stange errors such as
