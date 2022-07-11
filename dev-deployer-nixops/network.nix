@@ -76,6 +76,8 @@ in
       # cardanoNodePackages =
       #   cardano-node-mainnet.legacyPackages.x86_64-linux.cardanoNodePackages;
 
+      # Needed in order to connect to the outside world
+      hostAddr = "0.0.0.0";
 
       # Note that in the `systemctl status` call we are going the instance
       # running on a file called 'db-testnet-0', since the default environment
