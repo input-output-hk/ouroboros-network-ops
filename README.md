@@ -86,10 +86,10 @@ to delete that when trying to obtain a clean state;~~
 deleted bucket since AWS might take some time to recognize that bucket was deleted.~~
 
 After having run the terraform configuration, you have to manually get the public ips
-for each machine and add them to the nixops network configuration file (inside folder
-`dev-deployer-nixops`. Then you should create a new nixops network and deploy it with
-`nixops create -d my-network network.nix` after `nixops deploy -d my-network`.
-You should be able to get the IPs for each regions by running the following command:
+for each machine and add them to the `machine-ips.nix` file. Then you should create a
+new nixops network and deploy it with `nixops create -d my-network network.nix` after
+`nixops deploy -d my-network`. You should be able to get the IPs for each regions by
+running the following command:
 
 `terraform show -json | jq '.values.root_module.child_modules[].resources[].values | "\(.availability_zone) : \(.public_ip)"' | grep -v "null : null"`
 
@@ -118,6 +118,95 @@ one described previously:
 If you want to further configure each individual server you can look into:
 https://github.com/input-output-hk/cardano-node/blob/master/nix/nixos/cardano-node-service.nix#L136
 to see all the options available for configuration.
+
+### Cardano Tracer
+
+After deploying you can setup `cardano-tracer` to monitor the nodes with RTView or
+Prometheus and EKG servers (Please see more [here](https://github.com/input-output-hk/cardano-node/tree/master/cardano-tracer#readme))
+
+Currently this deployment repository is configured to work with cardano-tracer and
+monitoring the nodes via RTView (please check the specific [RTView page](https://github.com/input-output-hk/cardano-node/blob/master/cardano-tracer/docs/cardano-rtview.md)).
+Succintly there are 2 ways of running RTView:
+
+- Local
+- Distributed
+
+In the local setup, `cardano-tracer` and `cardano-node` run on the same
+machine. In a distributed setup `cardano-tracer` can be used to monitor multiple `cardano-node`s which all run on different machines.
+
+The one we want is the distributed one, where `cardano-tracer` runs on the deployer
+machine and the nodes on the deployed AWS instances.
+
+There are two particular things about the distributed way of setting up `cardano-tracer`:
+it can act as a Server or as a Client. As a Server, `cardano-tracer` waits for connections
+from `cardano-node` instances (so nodes are clients); and as a Client, `cardano-tracer`
+connects to `cardano-node` instances (so nodes are servers). We pick which way we want by
+configuring `cardano-tracer` with an `AcceptAt` or `ConnectTo` attribute and running the
+nodes with a `--tracer-socket-connect` or `--tracer-socket-accept`.
+
+For our particular situation, we are going to use `cardano-tracer` as a client and
+`cardano-node` instances as servers, since we can only establish a one-way connection
+from the deployer machine to the AWS instances via SSH. As our configuration is static and
+we won't be adding/removing nodes very often this shouldn't be much of a problem.
+More details about this tool can be found on its homepage.
+
+### Setting things up
+
+This repository has a folder called `dev-deployer-cardano-tracer` where you can find a
+`config.json` and `make-tunnels.nix` files. If you have filled the `./machine-ips.nix`
+and you have the machines running then all it is needed is to run:
+
+```
+> nix-build makeScripts.nix
+```
+
+This is going to generate `make-tunnels-mainnet.sh` and `make-tunnels-testnet.sh` that are
+responsible for launching `cardano-tracer` and start up all needed ssh local port
+forwardings. These scripts however are stored in the nix store, but their symlinked
+counterparts are named `result` and `result-2`, which can be found in the same
+directory that last command was run. `result` is for mainnet and `result-2` is for
+testnet.
+
+At last one can setup one last local port forwarding from its personal
+computer to the `dev-deployer` machine in order to access the WebUI:
+
+```
+> ssh -nNT \
+      -L 3100:0.0.0.0:3100 \
+      -L 3101:0.0.0.0:3101 \
+      -L 3200:0.0.0.0:3200 \
+      -L 3300:0.0.0.0:3300 \
+      -o "ServerAliveInterval 60" \
+      -o "ServerAliveCountMax 120" \
+      -o "StreamLocalBindUnlink yes" \
+      dev-deployer
+```
+
+for the mainnet monitor. And
+
+```
+> ssh -nNT \
+      -L 4100:0.0.0.0:4100 \
+      -L 4101:0.0.0.0:4101 \
+      -L 4200:0.0.0.0:4200 \
+      -L 4300:0.0.0.0:4300 \
+      -o "ServerAliveInterval 60" \
+      -o "ServerAliveCountMax 120" \
+      -o "StreamLocalBindUnlink yes" \
+      dev-deployer
+```
+
+for the testnet monitor.
+
+_NOTE_: That this is going to launch several programs in the background, if you wish to
+completely terminate those make a quick search with:
+
+```
+> ps aux | grep 'ssh -nNT'
+> ps aux | grep 'cardano-tracer'
+```
+
+And killing whatever process you wish.
 
 ## Material
 
