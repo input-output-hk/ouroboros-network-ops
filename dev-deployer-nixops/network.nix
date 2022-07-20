@@ -4,9 +4,14 @@ let
   # will run testnet.
   ifMainnet = mainnet: testnet: i: if i == 0 then mainnet else testnet;
 
+  # Same as 'ifMainnet' but applies a function with a common argument.
+  # This is useful in extraNodeInstanceConfig for applying a recursiveUpdate
+  # to both cardano-node services configs
+  ifMainnetC = f: common: mainnet: testnet: i: if i == 0 then f mainnet (common 0) else f testnet (common i);
+
   # import pinned niv sources
   sources = import ../nix/sources.nix;
-  pkgs    = import sources.nixpkgs { };
+  pkgs    = import sources.nixpkgs {};
 
   # Double check if they are not pinned to the same version.
   # If you want to change the version of a particular branch, for example:
@@ -15,14 +20,7 @@ let
   cardano-node-testnet = (import sources.cardano-node-testnet {});
 
   # Machines IP addresses
-  af-south-1     = "";
-  us-west-1      = "";
-  sa-east-1      = "";
-  us-east-2      = "";
-  ap-southeast-1 = "";
-  ap-southeast-2 = "";
-  ap-northeast-1 = "";
-  eu-west-3      = "";
+  machine-ips = import ../machine-ips.nix;
 
   mainnet-port = 7776;
   testnet-port = 7777;
@@ -36,7 +34,7 @@ in
   network.enableRollback = true;
 
   # Common configuration shared between all servers
-  defaults = { config, ... }: {
+  defaults = { config, lib, ... }: {
     # import nixos modules:
     # - Amazon image configuration (that was used to create the AMI)
     # - The cardano-node-service nixos module
@@ -57,6 +55,7 @@ in
         vim
         yq
         jq
+        cardano-node-mainnet.cardano-tracer
       ];
     };
 
@@ -68,6 +67,9 @@ in
       enable = true;
       instances = 2;
       useNewTopology = true;
+
+      # Needed in order to connect to the outside world
+      hostAddr = "0.0.0.0";
 
       # If you wish to overwrite the cardano-node package to a different one.
       # By default it runs the cardano-node-mainnet one.
@@ -87,8 +89,92 @@ in
       # a mainnet node with a 'db-testnet-0' file.
 
       extraNodeInstanceConfig =
-        ifMainnet config.services.cardano-node.environments.mainnet.nodeConfig
-                  config.services.cardano-node.environments.testnet.nodeConfig;
+        # Custom common node configuration for both mainnet and testnet
+        # instances.
+        let custom = i : {
+          ## Legacy tracing configuration ##
+
+          # Make the scribes defined in setupScribes available
+          defaultScribes = [
+            [
+              "FileSK"
+              "cardano-node-${toString i}-logs/node.log"
+            ]
+            [
+              "StdoutSK"
+              "stdout"
+            ]
+          ];
+          # Define multiple scribes
+          setupScribes = [
+            { scFormat = "ScText";
+              scKind   = "StdoutSK";
+              scName   = "stdout";
+              scRotation = null;
+            }
+            {
+              scFormat = "ScJson";
+              scKind   = "FileSK";
+              scName   = "cardano-node-${toString i}-logs/node.log";
+              scRotation = {
+                rpKeepFilesNum = 10;
+                rpLogLimitBytes = 25000000;
+                rpMaxAgeHours = 120;
+              };
+            }
+          ];
+
+          ## Non Legacy tracing configuration ##
+          ## Options for cardano-tracer RTView on Linux ##
+
+          UseTraceDispatcher = true;
+          TraceOptions = {
+            "" = {
+              severity = "Notice";
+              detail = "DNormal";
+              backends = [
+                "Stdout MachineFormat"
+                "EKGBackend"
+                "Forwarder"
+                ];
+            };
+          };
+          TraceOptionPeerFrequency = 2000;
+          TraceOptionResourceFrequency = 5000;
+          TurnOnLogMetrics = false;
+
+          ## Non-default traces to enable ##
+
+          # The maximum number of used peers during bulk sync.
+          MaxConcurrencyBulkSync = 2;
+
+          # The MaxConcurrencyDeadline configuration option controls how many
+          # attempts the node will run in parallel to fetch the same block
+          MaxConcurrencyDeadline = 4;
+
+          TraceBlockFetchClient = true;
+          TraceBlockFetchDecisions = true;
+          TraceChainSyncClient = true;
+          TraceChainSyncReqRsp = true;
+          TraceInboundGovernorCounters = true;
+          TraceMux = true;
+          TraceHandshake = true;
+          TraceLocalHandshake = true;
+        };
+        in
+        ifMainnetC lib.recursiveUpdate
+                   custom
+                   config.services.cardano-node.environments.mainnet.nodeConfig
+                   config.services.cardano-node.environments.testnet.nodeConfig;
+
+      # Accept connections from cardano-tracer.
+      tracerSocketPathAccept = i : "/run/${config.services.cardano-node.runtimeDir i}/cardano-node.sock";
+
+      # Connect to cardano-tracer
+      # Currently disabled since our topology only allows 1-way connection from deployer
+      # to nodes, not the other way around
+
+      # tracerSocketPathConnect = i : "/run/${config.services.cardano-node.runtimeDir i}/cardano-node.sock";
 
       # We can not programatically give a particular environment for each
       # instance, but luckily we can programatically give different
@@ -119,12 +205,15 @@ in
 
   # Server definitions
 
-  server-us-west = { config, pkgs, ... }: {
+  server-us-west = { config, lib, pkgs, nodes, ... }: {
     # Says we are going to deploy to an already existing NixOS machine
-    deployment.targetHost = us-west-1;
+    deployment.targetHost = machine-ips.us-west-1;
 
     # cardano-node service configuration
     services.cardano-node = {
+      # Add particular RTView Config
+      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-west-${toString i}"; };
+
       instanceProducers =
         ifMainnet [ { accessPoints = [
                         { address = nodes.server-us-east.config.deployment.targetHost;
@@ -168,11 +257,14 @@ in
     };
   };
 
-  server-us-east = { config, pkgs, ... }: {
-    deployment.targetHost = us-east-2;
+  server-us-east = { config, lib, pkgs, nodes, ... }: {
+    deployment.targetHost = machine-ips.us-east-2;
 
     # cardano-node service configuration
     services.cardano-node = {
+      # Add particular RTView Config
+      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-east-${toString i}"; };
+
       instanceProducers =
         ifMainnet [ { accessPoints = [
                         { address = nodes.server-eu.config.deployment.targetHost;
@@ -210,11 +302,14 @@ in
     };
   };
 
-  server-jp = { config, pkgs, ... }: {
-    deployment.targetHost = ap-northeast-1;
+  server-jp = { config, lib, pkgs, nodes, ... }: {
+    deployment.targetHost = machine-ips.ap-northeast-1;
 
     # cardano-node service configuration
     services.cardano-node = {
+      # Add particular RTView Config
+      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-jp-${toString i}"; };
+
       instanceProducers =
         ifMainnet [ { accessPoints = [
                         { address = nodes.server-sg.config.deployment.targetHost;
@@ -252,11 +347,14 @@ in
     };
   };
 
-  server-sg = { config, pkgs, ... }: {
-    deployment.targetHost = ap-southeast-1;
+  server-sg = { config, lib, pkgs, nodes, ... }: {
+    deployment.targetHost = machine-ips.ap-southeast-1;
 
     # cardano-node service configuration
     services.cardano-node = {
+      # Add particular RTView Config
+      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-sg-${toString i}"; };
+
       instanceProducers =
         ifMainnet [ { accessPoints = [
                         { address = nodes.server-sa.config.deployment.targetHost;
@@ -300,11 +398,14 @@ in
     };
   };
 
-  server-au = { config, pkgs, ... }: {
-    deployment.targetHost = ap-southeast-2;
+  server-au = { config, lib, pkgs, nodes, ... }: {
+    deployment.targetHost = machine-ips.ap-southeast-2;
 
     # cardano-node service configuration
     services.cardano-node = {
+      # Add particular RTView Config
+      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-au-${toString i}"; };
+
       instanceProducers =
         ifMainnet [ { accessPoints = [
                         { address = nodes.server-sg.config.deployment.targetHost;
@@ -339,11 +440,14 @@ in
     };
   };
 
-  server-br = { config, pkgs, ... }: {
-    deployment.targetHost = sa-east-1;
+  server-br = { config, lib, pkgs, nodes, ... }: {
+    deployment.targetHost = machine-ips.sa-east-1;
 
     # cardano-node service configuration
     services.cardano-node = {
+      # Add particular RTView Config
+      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-br-${toString i}"; };
+
       instanceProducers =
         ifMainnet [ { accessPoints = [
                         { address = nodes.server-sa.config.deployment.targetHost;
@@ -381,11 +485,14 @@ in
     };
   };
 
-  server-sa = { config, pkgs, ... }: {
-    deployment.targetHost = af-south-1;
+  server-sa = { config, lib, pkgs, nodes, ... }: {
+    deployment.targetHost = machine-ips.af-south-1;
 
     # cardano-node service configuration
     services.cardano-node = {
+      # Add particular RTView Config
+      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-sa-${toString i}"; };
+
       instanceProducers =
         ifMainnet [ { accessPoints = [
                         { address = nodes.server-sg.config.deployment.targetHost;
@@ -420,11 +527,14 @@ in
     };
   };
 
-  server-eu = { config, pkgs, ... }: {
-    deployment.targetHost = eu-west-3;
+  server-eu = { config, lib, pkgs, nodes, ... }: {
+    deployment.targetHost = machine-ips.eu-west-3;
 
     # cardano-node service configuration
     services.cardano-node = {
+      # Add particular RTView Config
+      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-eu-${toString i}"; };
+
       instanceProducers =
         ifMainnet [ { accessPoints = [
                         { address = nodes.server-sa.config.deployment.targetHost;

@@ -1,14 +1,14 @@
 {
     "cardano-node-mainnet": {
-        "branch": "master",
+        "branch": "bolt12/cardano-node-service",
         "description": "The core component that is used to participate in a Cardano decentralised blockchain.",
         "homepage": "https://cardano.org",
         "owner": "input-output-hk",
         "repo": "cardano-node",
-        "rev": "ca78153653c19f4704fe7ce9a5a32297bf86a211",
-        "sha256": "1rah24gvbnyprlk3liq18vswxn1v1ypk61n2a48kn6w4y196h2jv",
+        "rev": "c88b6a7f18c0385015c05dff4489274e0bdf9ca9",
+        "sha256": "13cqhd69f3j3wyfb32k6rma7j2q2bmkz4j6d5n5xq592wfb26wjs",
         "type": "tarball",
-        "url": "https://github.com/input-output-hk/cardano-node/archive/ca78153653c19f4704fe7ce9a5a32297bf86a211.tar.gz",
+        "url": "https://github.com/input-output-hk/cardano-node/archive/c88b6a7f18c0385015c05dff4489274e0bdf9ca9.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "cardano-node-testnet": {
@@ -17,10 +17,10 @@
         "homepage": "https://cardano.org",
         "owner": "input-output-hk",
         "repo": "cardano-node",
-        "rev": "ca78153653c19f4704fe7ce9a5a32297bf86a211",
-        "sha256": "1rah24gvbnyprlk3liq18vswxn1v1ypk61n2a48kn6w4y196h2jv",
+        "rev": "1f992886a4b25718f21a1ef1818cba63cbfa584d",
+        "sha256": "0azak7mbl787m24c4mw84na24whn8saf27l9m4hpk983xl0hn6g6",
         "type": "tarball",
-        "url": "https://github.com/input-output-hk/cardano-node/archive/ca78153653c19f4704fe7ce9a5a32297bf86a211.tar.gz",
+        "url": "https://github.com/input-output-hk/cardano-node/archive/1f992886a4b25718f21a1ef1818cba63cbfa584d.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs": {
