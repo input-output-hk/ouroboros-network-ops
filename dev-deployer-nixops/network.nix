@@ -195,7 +195,7 @@ in
         }]
           [{
             accessPoints = [{
-              address = "relays-new.cardano-testnet.iohk.io";
+              address = "relays-new.cardano-testnet.iohkdev.io";
               port = 3001;
             }];
             advertise = false;
