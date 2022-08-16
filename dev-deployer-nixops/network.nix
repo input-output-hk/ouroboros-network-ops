@@ -55,13 +55,19 @@ in
         vim
         yq
         jq
-        cardano-node-mainnet.cardano-tracer
+        lsof
+        htop
       ];
     };
 
     # Needed according to:
     # https://www.mikemcgirr.com/blog/2020-05-01-deploying-a-blog-with-terraform-and-nixos.html
     ec2.hvm = true;
+
+    services.openssh.extraConfig = ''
+        ClientAliveInterval 60
+        ClientAliveCountMax 120
+      '';
 
     services.cardano-node = {
       enable = true;
@@ -137,6 +143,18 @@ in
                 "EKGBackend"
                 "Forwarder"
                 ];
+            };
+            KeepAliveClient = {
+              severity = "Notice";
+            };
+            ConnectionManager = {
+              severity = "Debug";
+            };
+            ConnectionManagerTransitions = {
+              severity = "Debug";
+            }
+            LedgerPeers = {
+              severity = "Debug";
             };
           };
           TraceOptionPeerFrequency = 2000;
