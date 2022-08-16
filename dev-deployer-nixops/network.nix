@@ -152,7 +152,7 @@ in
             };
             ConnectionManagerTransitions = {
               severity = "Debug";
-            }
+            };
             LedgerPeers = {
               severity = "Debug";
             };
