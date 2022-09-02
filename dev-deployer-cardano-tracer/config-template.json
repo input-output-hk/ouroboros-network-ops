@@ -26,12 +26,12 @@
   },
   "logging": [
     {
-      "logRoot": "/tmp/cardano-tracer-h-logs",
+      "logRoot": "/tmp/cardano_tracer_h_logs",
       "logMode": "FileMode",
       "logFormat": "ForHuman"
     },
     {
-      "logRoot": "/tmp/cardano-tracer-m-logs",
+      "logRoot": "/tmp/cardano_tracer_m_logs",
       "logMode": "FileMode",
       "logFormat": "ForMachine"
     }
@@ -39,8 +39,8 @@
   "rotation": {
     "rpFrequencySecs": 15,
     "rpKeepFilesNum": 10,
-    "rpLogLimitBytes": 25000000,
-    "rpMaxAgeHours": 120
+    "rpLogLimitBytes": 5000000,
+    "rpMaxAgeHours": 24
   },
   "verbosity": "ErrorsOnly"
 }

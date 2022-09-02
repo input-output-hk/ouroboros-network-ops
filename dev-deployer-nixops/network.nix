@@ -7,7 +7,8 @@ let
   # Same as 'ifMainnet' but applies a function with a common argument.
   # This is useful in extraNodeInstanceConfig for applying a recursiveUpdate
   # to both cardano-node services configs
-  ifMainnetC = f: common: mainnet: testnet: i: if i == 0 then f mainnet (common 0) else f testnet (common i);
+  ifMainnetC = f: common: mainnet: testnet: i:
+    if i == 0 then f mainnet (common 0) else f testnet (common i);
 
   # import pinned niv sources
   sources = import ../nix/sources.nix;
@@ -16,8 +17,14 @@ let
   # Double check if they are not pinned to the same version.
   # If you want to change the version of a particular branch, for example:
   # niv update cardano-node-testnet -b <branch>
-  cardano-node-mainnet = (import sources.cardano-node-mainnet {});
-  cardano-node-testnet = (import sources.cardano-node-testnet {});
+  cardano-node-mainnet     = (import sources.cardano-node-mainnet {});
+  cardano-node-testnet     = (import sources.cardano-node-testnet {});
+  # Add here all other cardano-node versions you might want to deploy and test:
+  # niv add input-output-hk/cardano-node -n <name>
+  # niv update <name> -b <branch>
+  # OR
+  # niv update <name> -r <rev>
+  cardano-node-development = (import sources.cardano-node-development {});
 
   # Machines IP addresses
   machine-ips = import ../machine-ips.nix;
@@ -41,11 +48,17 @@ in
     imports = [
       "${sources.nixpkgs.outPath}/nixos/modules/virtualisation/amazon-image.nix"
 
-      # Doesn't matter if we use the mainnet or testnet ones since we are going to
+      # It should not matter if we use the mainnet or testnet ones since we are going to
       # overwrite the cardano-node packages in the cardano-node service if needed.
       #
-      # I am making t he assummption that it does not matter (at least for now) which
-      # service version we import here.
+      # NOTE that currently we need to be running the mainnet one since it is the version
+      # that is pinned to the bolt12/cardano-node-service-release - this branch has currently:
+      # - node version 1.35.x with a needed bug fix
+      # - is rebased on top of bolt12/cardano-node-service which extends the cardano-node-service
+      #   with much needed improvements
+      #
+      # While this is the case be sure to include commit 9642ffec16ac51e6aeef6901d8a1fbb147751d72
+      # (https://github.com/input-output-hk/cardano-node/pull/4196) # in the most recent master version
       cardano-node-mainnet.nixosModules.cardano-node
     ];
 
@@ -84,15 +97,14 @@ in
       # cardanoNodePackages =
       #   cardano-node-mainnet.legacyPackages.x86_64-linux.cardanoNodePackages;
 
-      # Needed in order to connect to the outside world
-      hostAddr = "0.0.0.0";
-
-      # Note that in the `systemctl status` call we are going the instance
-      # running on a file called 'db-testnet-0', since the default environment
+      # Note that in the output of `systemctl status`, the testnet instance will
+      # be running on a file called 'db-testnet-0', since the default environment
       # is "testnet" and the db file is called after this environment variable.
       # 'extraNodeInstanceConfig' does not overwrite the environment variable,
       # only the nodeConfig values so, although misleading we will be running
-      # a mainnet node with a 'db-testnet-0' file.
+      # a testnet node only with a 'db-testnet-0' file.
+      # To really make sure an instance is running mainnet vs testnet one can
+      # always check its configuration files
 
       extraNodeInstanceConfig =
         # Custom common node configuration for both mainnet and testnet
@@ -101,6 +113,8 @@ in
           ## Legacy tracing configuration ##
 
           # Make the scribes defined in setupScribes available
+          #
+          # Logs appear in /var/lib/cardano-node
           defaultScribes = [
             [
               "FileSK"
@@ -130,20 +144,20 @@ in
             }
           ];
 
-          ## Non Legacy tracing configuration ##
           ## Options for cardano-tracer RTView on Linux ##
 
           UseTraceDispatcher = true;
           TraceOptions = {
             "" = {
-              severity = "Notice";
+              severity = "Info";
               detail = "DNormal";
               backends = [
                 "Stdout MachineFormat"
                 "EKGBackend"
                 "Forwarder"
-                ];
+              ];
             };
+
             KeepAliveClient = {
               severity = "Notice";
             };
@@ -157,6 +171,7 @@ in
               severity = "Debug";
             };
           };
+
           TraceOptionPeerFrequency = 2000;
           TraceOptionResourceFrequency = 5000;
           TurnOnLogMetrics = false;
@@ -191,7 +206,6 @@ in
       # Connect to cardano-tracer
       # Currently disabled since our topology only allows 1-way connection from deployer
       # to nodes, not the other way around
-
       # tracerSocketPathConnect = i : "/run/${config.services.cardano-node.runtimeDir i}/cardano-node.sock";
 
       # We can not programatically give a particular environment for each
@@ -229,6 +243,13 @@ in
 
     # cardano-node service configuration
     services.cardano-node = {
+
+      # Running rev: b9fbc8e3ee6080dbc19c6fa4a4e4c2f695060690
+      # https://github.com/input-output-hk/ouroboros-network/pull/3979
+      # Check niv dependencies
+      cardanoNodePackages =
+        cardano-node-development.legacyPackages.x86_64-linux.cardanoNodePackages;
+
       # Add particular RTView Config
       extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-west-${toString i}"; };
 
@@ -326,7 +347,7 @@ in
     # cardano-node service configuration
     services.cardano-node = {
       # Add particular RTView Config
-      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-jp-${toString i}"; };
+      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-jp-${toString i}"; };
 
       instanceProducers =
         ifMainnet [ { accessPoints = [
@@ -371,7 +392,7 @@ in
     # cardano-node service configuration
     services.cardano-node = {
       # Add particular RTView Config
-      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-sg-${toString i}"; };
+      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-sg-${toString i}"; };
 
       instanceProducers =
         ifMainnet [ { accessPoints = [
@@ -422,7 +443,7 @@ in
     # cardano-node service configuration
     services.cardano-node = {
       # Add particular RTView Config
-      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-au-${toString i}"; };
+      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-au-${toString i}"; };
 
       instanceProducers =
         ifMainnet [ { accessPoints = [
@@ -464,7 +485,7 @@ in
     # cardano-node service configuration
     services.cardano-node = {
       # Add particular RTView Config
-      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-br-${toString i}"; };
+      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-br-${toString i}"; };
 
       instanceProducers =
         ifMainnet [ { accessPoints = [
@@ -509,7 +530,7 @@ in
     # cardano-node service configuration
     services.cardano-node = {
       # Add particular RTView Config
-      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-sa-${toString i}"; };
+      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-sa-${toString i}"; };
 
       instanceProducers =
         ifMainnet [ { accessPoints = [
@@ -551,7 +572,7 @@ in
     # cardano-node service configuration
     services.cardano-node = {
       # Add particular RTView Config
-      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-eu-${toString i}"; };
+      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-eu-${toString i}"; };
 
       instanceProducers =
         ifMainnet [ { accessPoints = [

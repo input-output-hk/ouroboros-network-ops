@@ -15,8 +15,7 @@ terraform {
 }
 
 resource "aws_security_group" "allow_deployer_sg" {
-  name        = "allow_deployer"
-  #vpc_id      = aws_default_vpc.default.id
+  name        = "allow_deployer_sg"
 
   ingress {
     description = "allow all from deployer"
@@ -28,8 +27,7 @@ resource "aws_security_group" "allow_deployer_sg" {
 }
 
 resource "aws_security_group" "allow_all_sg" {
-  name        = "allow_all_sg"
-  #vpc_id      = aws_default_vpc.default.id
+  name    = "allow_all_sg"
 
   ingress {
     description = "allow all hosts to access any port greater than 1023 (IPv4)"
@@ -75,7 +73,7 @@ resource "aws_instance" "cad-2694-node" {
   key_name      = "admin_kp"
   ebs_optimized = true
   root_block_device {
-    volume_size = 90
+    volume_size = 120
     volume_type = "standard"
   }
   security_groups = [
