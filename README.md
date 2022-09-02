@@ -1,3 +1,22 @@
+# Table of Contents
+
+- [Table of Contents](#table-of-contents)
+  * [TODOs](#todos)
+    + [Additional TODOs](#additional-todos)
+  * [Steps to deploy with Terraform](#steps-to-deploy-with-terraform)
+  * [How to deploy](#how-to-deploy)
+    + [Cardano Tracer](#cardano-tracer)
+      - [Setting things up](#setting-things-up)
+    + [Current deployment notes](#current-deployment-notes)
+    + [Tweaking nodes / configurations](#tweaking-nodes---configurations)
+      - [Changing node version](#changing-node-version)
+      - [Changing a particular instances version](#changing-a-particular-instances-version)
+  * [Material](#material)
+    + [Flakes](#flakes)
+    + [Deploy with nix](#deploy-with-nix)
+    + [Cardano](#cardano)
+    + [AWS](#aws)
+
 ## TODOs
 
 - [x] Remove NixOS AMI generation dependency
@@ -11,6 +30,10 @@
   - [x] confirm that IOHK tokens have never been committed
 - [x] Add 2 different cardano-node versions to niv
 - [x] Add a let in replacement for all the servers targetHost
+
+### Additional TODOs
+
+- [ ] Get [#4196](https://github.com/input-output-hk/cardano-node/pull/4196/) merged
 
 ## Steps to deploy with Terraform
 
@@ -150,7 +173,7 @@ from the deployer machine to the AWS instances via SSH. As our configuration is 
 we won't be adding/removing nodes very often this shouldn't be much of a problem.
 More details about this tool can be found on its homepage.
 
-### Setting things up
+#### Setting things up
 
 This repository has a folder called `dev-deployer-cardano-tracer` where you can find a
 `config.json` and `make-tunnels.nix` files. If you have filled the `./machine-ips.nix`
@@ -207,6 +230,121 @@ completely terminate those make a quick search with:
 ```
 
 And killing whatever process you wish.
+
+_OR_ you can run `clean.sh` but be careful that there might be other non-related
+processes under the same grep regex.
+
+### Current deployment notes
+
+There a couple of things one should note about the current deployment, the first one being that the cardano-node service depends on a particular commit as one can read in the `network.nix` file:
+
+```nix
+  # Common configuration shared between all servers
+  defaults = { config, lib, ... }: {
+    # import nixos modules:
+    # - Amazon image configuration (that was used to create the AMI)
+    # - The cardano-node-service nixos module
+    imports = [
+      "${sources.nixpkgs.outPath}/nixos/modules/virtualisation/amazon-image.nix"
+
+      # It should not matter if we use the mainnet or testnet ones since we are going to
+      # overwrite the cardano-node packages in the cardano-node service if needed.
+      #
+      # NOTE that currently we need to be running the mainnet one since it is the version
+      # that is pinned to the bolt12/cardano-node-service-release - this branch has currently:
+      # - node version 1.35.x with a needed bug fix
+      # - is rebased on top of bolt12/cardano-node-service which extends the cardano-node-service
+      #   with much needed improvements
+      #
+      # While this is the case be sure to include commit 9642ffec16ac51e6aeef6901d8a1fbb147751d72
+      # (https://github.com/input-output-hk/cardano-node/pull/4196) # in the most recent master version
+      cardano-node-mainnet.nixosModules.cardano-node
+    ];
+```
+
+[This PR](https://github.com/input-output-hk/cardano-node/pull/4196) abstracts some options to multiple instances in order to enable us to further configure what we want depending on the current instance.
+
+As said, currently, `cardano-node-mainnet` is pinned to `bolt12/cardano-node-service-release` which puts the needed commit on top of `release/1.35`. If one would want to update the cardano-node-mainnet version it needs to make sure to cherry-pick [this commit](https://github.com/input-output-hk/cardano-node/pull/4196/commits/9642ffec16ac51e6aeef6901d8a1fbb147751d72).
+
+The second thing to note is that currently `server-us-west` is overwriting `service.cardano-node.cardanoNodePackages` to test a particular cardano-node revision. One should take this into consideration if wanting to update the node.
+
+### Tweaking nodes / configurations
+
+#### Changing node version
+
+If you want to test how a given node version/branch/revision does in mainnet/testnet
+all you have to do is to change the `services.cardano-node.cardanoNodePackages` attribute, for the server's instance of your choosing.
+
+In `network.nix` you will find more details:
+
+```nix
+# If you wish to overwrite the cardano-node package to a different one.
+# By default it runs the cardano-node-mainnet one.
+# You ought to put this on a particular server instead of in the default atttribute
+
+# cardanoNodePackages =
+#   cardano-node-mainnet.legacyPackages.x86_64-linux.cardanoNodePackages;
+```
+
+A good way to do this is to add a new cardano-node version with niv:
+
+```
+niv add input-output-hk/cardano-node -n <name>
+niv update <name> -b <branch>
+```
+
+or
+
+```
+niv update <name> -r <rev>
+```
+
+And then add it at the top-level of the `network.nix` file:
+
+```nix
+let
+  ...
+  <name> = (import sources.<name> {});
+in
+...
+```
+
+and use it:
+
+```nix
+cardanoNodePackages =
+  <name>.legacyPackages.x86_64-linux.cardanoNodePackages;
+```
+
+#### Changing a particular instances version
+
+If you want to have a different configuration for a particular server's instance, e.g. enable a set of traces on testnet but not on mainnet, you can do that by changing the `services.cardano-node.extraNodeInstanceConfig`.
+
+In `network.nix` you can find examples of this, e.g.:
+
+- In common `service.cardano-node` configuration:
+
+```nix
+      extraNodeInstanceConfig =
+        # Custom common node configuration for both mainnet and testnet
+        # instances.
+        let custom = i : {
+          ...
+        };
+        in
+        ifMainnetC lib.recursiveUpdate
+                   custom
+                   config.services.cardano-node.environments.mainnet.nodeConfig
+                   config.services.cardano-node.environments.testnet.nodeConfig;
+````
+
+- In a particular server's `service.cardano-node` configuration:
+
+```nix
+# Add particular RTView Config
+extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-west-${toString i}"; };
+```
+
 
 ## Material
 
