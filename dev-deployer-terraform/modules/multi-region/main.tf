@@ -3,7 +3,7 @@ variable "instance_type" { default = "t3a.2xlarge" }
 
 # If universal access is needed from another machine this is the place to add it.
 #                                        ---v dev-deployer machine
-variable "allowed-to-access" { default = [ ""
+variable "allowed-to-access" { default = [ "<dev deployer IP>"
                                          ] }
 
 terraform {
@@ -64,7 +64,7 @@ resource "aws_security_group" "allow_all_sg" {
 
 resource "aws_key_pair" "admin_kp" {
   key_name   = "admin_kp"
-  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7DmrNylD3NQ0Z1I0i9EqNiPp++gXxgDIrno4jJIR8RBE3oFXjhbY0yJUZt9Tn4uDESQfL0INDO0alWb79OURUL7fKaeXWqbcYolUiCqaxM2bPf8s4giTY0JdG7xaBJq5jSlO34+l1p7DV+tyTHTUYN69jgrc+FMLuQcVDKrXeBKnbyt4YD/hXOuX898D0P554CmM/OMzs0x3DAboqgjmBhoMbdpBqeO6Wmc663SP9D2sTHyOuuUBJFFK9mPNstLMMLJGHsPzzQxsGTp8bwl2yOu9Z3gEp9tC6uvLUHW+P3OCh1vFsLCgYi6L4q/RKAqWni6Oc3i/5i9rF+mJqmBRV7E1zfe9CY9clSSgWgN6vLbhKEIzRvXfzHY+1zUpcziL0aniet0s2yGq5yRhlJWRM9BC/LTcEA8lJJUdEI1C0sI3iEYYKGgKefFhbjTGTNsBk0CzbFKQJqKeMH/wQRBu1sZJwk9khRissDoNGHVWSY9CwS+z/IOfzSDT5eAG5C3M= dev@dev-deployer"
+  public_key = "<admin key>"
 }
 
 resource "aws_instance" "cad-2694-node" {
@@ -73,7 +73,7 @@ resource "aws_instance" "cad-2694-node" {
   key_name      = "admin_kp"
   ebs_optimized = true
   root_block_device {
-    volume_size = 120
+    volume_size = 160
     volume_type = "standard"
   }
   security_groups = [

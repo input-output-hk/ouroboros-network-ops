@@ -1,7 +1,7 @@
 # import pinned niv sources
 let sources = import ./nix/sources.nix;
     pkgs    = import sources.nixpkgs { };
-    cardano-tracer = (import (import sources.cardano-node-mainnet { }) { }).cardano-tracer;
+    cardano-tracer = (import sources.cardano-node-mainnet { }).cardano-tracer;
 
 in pkgs.mkShell {
   # nativeBuildInputs is usually what you want -- tools you need to run
