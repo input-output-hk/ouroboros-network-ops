@@ -77,10 +77,34 @@ in
     # https://www.mikemcgirr.com/blog/2020-05-01-deploying-a-blog-with-terraform-and-nixos.html
     ec2.hvm = true;
 
+    # limit tmp folders size since we don't need to occupy so much space for them
+    boot = {
+      tmpOnTmpfs = false;
+      runSize = "5%";
+      devShmSize = "5%";
+    };
+
     services.openssh.extraConfig = ''
         ClientAliveInterval 60
         ClientAliveCountMax 120
       '';
+
+    # configure journald to not suppress any messages and to keep more logs by
+    # raising the SystemMaxUse value
+    services.journald = {
+      rateLimitInterval = "0";
+      rateLimitBurst = 0;
+      extraConfig = ''
+        SystemMaxUse=30G
+        SystemKeepFree=5G
+        SystemMaxFileSize=500M
+        SystemMaxFiles=65
+        RuntimeMaxUse=30G
+        RuntimeKeepFree=5G
+        RuntimeMaxFileSize=500M
+        RuntimeMaxFiles=65
+      '';
+    };
 
     services.cardano-node = {
       enable = true;
@@ -170,13 +194,26 @@ in
             LedgerPeers = {
               severity = "Debug";
             };
+
+            ChainSync = {
+              severity = "Warning";
+            };
+
+            BlockFetch = {
+              severity = "Warning";
+            };
+
+            "ChainDB.AddBlockEvent.AddBlockValidation" = {
+              severity = "Warning";
+            };
+            "ChainDB.ImmDbEvent.ChunkValidation" = {
+              severity = "Warning";
+            };
           };
 
           TraceOptionPeerFrequency = 2000;
           TraceOptionResourceFrequency = 5000;
           TurnOnLogMetrics = false;
-
-          ## Non-default traces to enable ##
 
           # The maximum number of used peers during bulk sync.
           MaxConcurrencyBulkSync = 2;
@@ -184,15 +221,6 @@ in
           # The MaxConcurrencyDeadline configuration option controls how many
           # attempts the node will run in parallel to fetch the same block
           MaxConcurrencyDeadline = 4;
-
-          TraceBlockFetchClient = true;
-          TraceBlockFetchDecisions = true;
-          TraceChainSyncClient = true;
-          TraceChainSyncReqRsp = true;
-          TraceInboundGovernorCounters = true;
-          TraceMux = true;
-          TraceHandshake = true;
-          TraceLocalHandshake = true;
         };
         in
         ifMainnetC lib.recursiveUpdate
