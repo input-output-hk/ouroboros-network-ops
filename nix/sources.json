@@ -1,6 +1,6 @@
 {
     "cardano-node-development": {
-        "branch": "master",
+        "branch": "coot/1.35-with-ouroboros-network-pr-3979",
         "description": "The core component that is used to participate in a Cardano decentralised blockchain.",
         "homepage": "https://cardano.org",
         "owner": "input-output-hk",
@@ -17,10 +17,10 @@
         "homepage": "https://cardano.org",
         "owner": "input-output-hk",
         "repo": "cardano-node",
-        "rev": "b9e11d36dc9db16c1a338fde45e741007d7b62a7",
-        "sha256": "1wzx25fikdjddfwkpv9f90m11np28zc99cf6qqkx8sifhgsll6jz",
+        "rev": "df022a3f4adc771579a5bf00661c0a2eb0f5fb4a",
+        "sha256": "07wagy112i65hk33sbskjwzcrnc7yqk6nvis8yjq0nms9admp80s",
         "type": "tarball",
-        "url": "https://github.com/input-output-hk/cardano-node/archive/b9e11d36dc9db16c1a338fde45e741007d7b62a7.tar.gz",
+        "url": "https://github.com/input-output-hk/cardano-node/archive/df022a3f4adc771579a5bf00661c0a2eb0f5fb4a.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "cardano-node-testnet": {

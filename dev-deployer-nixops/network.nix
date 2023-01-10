@@ -77,10 +77,34 @@ in
     # https://www.mikemcgirr.com/blog/2020-05-01-deploying-a-blog-with-terraform-and-nixos.html
     ec2.hvm = true;
 
+    # limit tmp folders size since we don't need to occupy so much space for them
+    boot = {
+      tmpOnTmpfs = false;
+      runSize = "5%";
+      devShmSize = "5%";
+    };
+
     services.openssh.extraConfig = ''
         ClientAliveInterval 60
         ClientAliveCountMax 120
       '';
+
+    # configure journald to not suppress any messages and to keep more logs by
+    # raising the SystemMaxUse value
+    services.journald = {
+      rateLimitInterval = "0";
+      rateLimitBurst = 0;
+      extraConfig = ''
+        SystemMaxUse=30G
+        SystemKeepFree=5G
+        SystemMaxFileSize=500M
+        SystemMaxFiles=65
+        RuntimeMaxUse=30G
+        RuntimeKeepFree=5G
+        RuntimeMaxFileSize=500M
+        RuntimeMaxFiles=65
+      '';
+    };
 
     services.cardano-node = {
       enable = true;
@@ -170,13 +194,26 @@ in
             LedgerPeers = {
               severity = "Debug";
             };
+
+            ChainSync = {
+              severity = "Warning";
+            };
+
+            BlockFetch = {
+              severity = "Warning";
+            };
+
+            "ChainDB.AddBlockEvent.AddBlockValidation" = {
+              severity = "Warning";
+            };
+            "ChainDB.ImmDbEvent.ChunkValidation" = {
+              severity = "Warning";
+            };
           };
 
           TraceOptionPeerFrequency = 2000;
           TraceOptionResourceFrequency = 5000;
           TurnOnLogMetrics = false;
-
-          ## Non-default traces to enable ##
 
           # The maximum number of used peers during bulk sync.
           MaxConcurrencyBulkSync = 2;
@@ -184,15 +221,6 @@ in
           # The MaxConcurrencyDeadline configuration option controls how many
           # attempts the node will run in parallel to fetch the same block
           MaxConcurrencyDeadline = 4;
-
-          TraceBlockFetchClient = true;
-          TraceBlockFetchDecisions = true;
-          TraceChainSyncClient = true;
-          TraceChainSyncReqRsp = true;
-          TraceInboundGovernorCounters = true;
-          TraceMux = true;
-          TraceHandshake = true;
-          TraceLocalHandshake = true;
         };
         in
         ifMainnetC lib.recursiveUpdate
@@ -285,7 +313,7 @@ in
                         { address = nodes.server-au.config.deployment.targetHost;
                           port = testnet-port;
                         }
-                        { address = "13.52.93.226";
+                        { address = "";
                           port = testnet-port;
                         }
                       ];
@@ -330,7 +358,7 @@ in
                         { address = nodes.server-br.config.deployment.targetHost;
                           port = testnet-port;
                         }
-                        { address = "3.142.182.220";
+                        { address = "";
                           port = 3001;
                         }
                       ];
@@ -375,7 +403,7 @@ in
                         { address = nodes.server-au.config.deployment.targetHost;
                           port = testnet-port;
                         }
-                        { address = "54.238.39.214";
+                        { address = "";
                           port = testnet-port;
                         }
                       ];
@@ -426,7 +454,7 @@ in
                         { address = nodes.server-jp.config.deployment.targetHost;
                           port = testnet-port;
                         }
-                        { address = "52.74.94.66";
+                        { address = "";
                           port = testnet-port;
                         }
                       ];
@@ -513,7 +541,7 @@ in
                         { address = nodes.server-us-east.config.deployment.targetHost;
                           port = testnet-port;
                         }
-                        { address = "18.229.177.239";
+                        { address = "";
                           port = testnet-port;
                         }
                       ];
@@ -585,10 +613,10 @@ in
                         { address = nodes.server-us-east.config.deployment.targetHost;
                           port = mainnet-port;
                         }
-                        { address = "88.99.169.172";
+                        { address = "";
                           port = mainnet-port;
                         }
-                        { address = "95.217.1.58";
+                        { address = "";
                           port = mainnet-port;
                         }
                       ];
@@ -607,11 +635,11 @@ in
                           port = testnet-port;
                         }
                         {
-                          address = "88.99.169.172";
+                          address = "";
                           port = testnet-port;
                         }
                         {
-                          address = "18.169.36.236";
+                          address = "";
                           port = 3001;
                         }
                       ];
