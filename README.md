@@ -11,6 +11,7 @@
     + [Tweaking nodes / configurations](#tweaking-nodes---configurations)
       - [Changing node version](#changing-node-version)
       - [Changing a particular instances version](#changing-a-particular-instances-version)
+  * [Scripts to generate graphs](#scripts-to-generate-graphs)
   * [Material](#material)
     + [Flakes](#flakes)
     + [Deploy with nix](#deploy-with-nix)
@@ -33,7 +34,7 @@
 
 ### Additional TODOs
 
-- [ ] Get [#4196](https://github.com/input-output-hk/cardano-node/pull/4196/) merged
+- [x] Get [#4196](https://github.com/input-output-hk/cardano-node/pull/4196/) merged
 
 ## Steps to deploy with Terraform
 
@@ -262,9 +263,8 @@ There a couple of things one should note about the current deployment, the first
     ];
 ```
 
-[This PR](https://github.com/input-output-hk/cardano-node/pull/4196) abstracts some options to multiple instances in order to enable us to further configure what we want depending on the current instance.
-
-As said, currently, `cardano-node-mainnet` is pinned to `bolt12/cardano-node-service-release` which puts the needed commit on top of `release/1.35`. If one would want to update the cardano-node-mainnet version it needs to make sure to cherry-pick [this commit](https://github.com/input-output-hk/cardano-node/pull/4196/commits/9642ffec16ac51e6aeef6901d8a1fbb147751d72).
+Current release (1.35.5) does not contemplate PR [#4196](https://github.com/input-output-hk/cardano-node/pull/4196/), for this reason one has to cherry pick the changes on that PR on top of the release 1.35.5 tag.
+If the cardano-node version used already has this changes ignore this paragraph.
 
 The second thing to note is that currently `server-us-west` is overwriting `service.cardano-node.cardanoNodePackages` to test a particular cardano-node revision. One should take this into consideration if wanting to update the node.
 
@@ -345,6 +345,9 @@ In `network.nix` you can find examples of this, e.g.:
 extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-west-${toString i}"; };
 ```
 
+## Scripts to generate graphs
+
+In the `scripts` folder you'll find `scripts/collect-resources.sh` running `./scripts/collect-resources.sh` will generate a file called `combined.png`. That file will have a 2x4 montage of all 8 deployed machines heap consumption information.
 
 ## Material
 
