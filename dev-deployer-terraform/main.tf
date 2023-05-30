@@ -9,7 +9,7 @@ provider "aws" {
   region = "eu-west-1"
 }
 
-variable "nixos-version" { default = "22.05" }
+variable "nixos-version" { default = "22.11" }
 
 # Assuming the AMIs for older NixOS versions do not change with each new release
 resource "null_resource" "get-amis" {
@@ -84,7 +84,6 @@ module "br" {
 module "sa" {
   source = "./modules/multi-region"
   ami    = jsondecode(data.local_file.created-amis.content)[var.nixos-version]["${data.aws_region.sa.name}"]["x86_64-linux"]["hvm-ebs"]
-  instance_type = "t3.2xlarge"
   providers = {
     aws = aws.sa
   }
