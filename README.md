@@ -35,6 +35,7 @@
 ### Additional TODOs
 
 - [x] Get [#4196](https://github.com/input-output-hk/cardano-node/pull/4196/) merged
+- [x] Add monitoring node configuration
 
 ## Steps to deploy with Terraform
 

@@ -1,0 +1,9 @@
+# Note: later rules override earlier rules.
+
+# Default
+* @bolt12
+
+# nixops + terraform
+dev-deployer-*/ @bolt12 @njd42 @johnalotoski
+
+

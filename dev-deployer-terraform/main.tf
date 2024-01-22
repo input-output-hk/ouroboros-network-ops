@@ -9,7 +9,7 @@ provider "aws" {
   region = "eu-west-1"
 }
 
-variable "nixos-version" { default = "22.11" }
+variable "nixos-version" { default = "23.11" }
 
 # Assuming the AMIs for older NixOS versions do not change with each new release
 resource "null_resource" "get-amis" {
@@ -95,4 +95,5 @@ module "eu" {
   providers = {
     aws = aws.eu
   }
+  create_monitoring_instance = true
 }
