@@ -29,8 +29,8 @@ let
   # Machines IP addresses
   machine-ips = import ../machine-ips.nix;
 
-  mainnet-port = 7776;
-  testnet-port = 7777;
+  mainnet-port = 3001;
+  testnet-port = 3002;
 
 in
 {
@@ -60,6 +60,9 @@ in
       # While this is the case be sure to include commit 9642ffec16ac51e6aeef6901d8a1fbb147751d72
       # (https://github.com/input-output-hk/cardano-node/pull/4196) # in the most recent master version
       cardano-node-mainnet.nixosModules.cardano-node
+
+      # CF Systemd unit to provide data
+      ./blockperf.nix
     ];
 
     # Packages to be installed system-wide. We need at least cardano-node
@@ -70,8 +73,20 @@ in
         jq
         lsof
         htop
+        mosquitto
       ];
     };
+
+    # Firewall config
+    #
+    # This needs to be synced with AWS Security Groups
+    networking.firewall.allowPing = true;
+    networking.firewall.allowedTCPPortRanges =
+      [
+        { from = 1024;
+          to   = 65535;
+        }
+      ];
 
     # Needed according to:
     # https://www.mikemcgirr.com/blog/2020-05-01-deploying-a-blog-with-terraform-and-nixos.html
@@ -105,14 +120,28 @@ in
         RuntimeMaxFiles=65
       '';
     };
+    # Upload files to /run/keys/
+    deployment.keys.iog-network-team-certificate.keyFile = "";
+    deployment.keys.iog-network-team-private.keyFile = "";
+    deployment.keys.iog-network-team-mqtt.keyFile = "";
+    deployment.keys.iog-network-team-blockperf = {
+      keyFile = ./blockPerf.sh;
+      user = "root";
+      group = "root";
+      permissions = "0400"; # r--------
+    };
 
     services.cardano-node = {
       enable = true;
-      instances = 2;
+      instances = 1; # Change this to 2 to run mainnet and testnet instances
       useNewTopology = true;
+      useLegacyTracing = true;
 
       # Needed in order to connect to the outside world
       hostAddr = "0.0.0.0";
+
+      # Whether to compile using assertions
+      asserts = true;
 
       # If you wish to overwrite the cardano-node package to a different one.
       # By default it runs the cardano-node-mainnet one.
@@ -170,46 +199,56 @@ in
 
           ## Options for cardano-tracer RTView on Linux ##
 
-          UseTraceDispatcher = true;
-          TraceOptions = {
-            "" = {
-              severity = "Info";
-              detail = "DNormal";
-              backends = [
-                "Stdout MachineFormat"
-                "EKGBackend"
-                "Forwarder"
-              ];
-            };
+          # This enables the new tracing
+          UseTraceDispatcher = false;
+          # TraceOptions = {
+          #   "" = {
+          #     severity = "Info";
+          #     detail = "DNormal";
+          #     backends = [
+          #       "Stdout MachineFormat"
+          #       "EKGBackend"
+          #       "Forwarder"
+          #     ];
+          #   };
 
-            KeepAliveClient = {
-              severity = "Notice";
-            };
-            ConnectionManager = {
-              severity = "Debug";
-            };
-            ConnectionManagerTransitions = {
-              severity = "Debug";
-            };
-            LedgerPeers = {
-              severity = "Debug";
-            };
+          #   "Net.KeepAliveClient" = {
+          #     severity = "Notice";
+          #   };
+          #   "Net.ConnectionManager.Remote.Transition" = {
+          #     severity = "Info";
+          #   };
+          #   "Net.Peers.Ledger" = {
+          #     severity = "Debug";
+          #   };
 
-            ChainSync = {
-              severity = "Warning";
-            };
+          #   ChainSync = {
+          #     severity = "Warning";
+          #   };
 
-            BlockFetch = {
-              severity = "Warning";
-            };
+          #   BlockFetch = {
+          #     severity = "Warning";
+          #   };
 
-            "ChainDB.AddBlockEvent.AddBlockValidation" = {
-              severity = "Warning";
-            };
-            "ChainDB.ImmDbEvent.ChunkValidation" = {
-              severity = "Warning";
-            };
-          };
+          #   "ChainDB.AddBlockEvent.AddBlockValidation" = {
+          #     severity = "Warning";
+          #   };
+          #   "ChainDB.ImmDbEvent.ChunkValidation" = {
+          #     severity = "Warning";
+          #   };
+          #   "Net.PeerSelection.Selection" = {
+          #     severity = "Info";
+          #   };
+          # };
+
+          TraceConnectionManagerTransitions = true;
+          TraceChainDb = true;
+          TraceChainSyncClient = true;
+          TraceBlockFetchDecisions = true;
+          TraceBlockFetchClient = true;
+          TracePeerSelection = true;
+          ServerTrace = true;
+          minSeverity = "Info";
 
           TraceOptionPeerFrequency = 2000;
           TraceOptionResourceFrequency = 5000;
@@ -261,6 +300,9 @@ in
             advertise = false;
           }];
     };
+
+    # Enable the CF data feed service
+    services.blockperf.enable = true;
   };
 
   # Server definitions
@@ -269,17 +311,24 @@ in
     # Says we are going to deploy to an already existing NixOS machine
     deployment.targetHost = machine-ips.us-west-1;
 
+    # Set up blockperf public ip configuration parameter
+    services.blockperf.publicIP = machine-ips.us-west-1;
+
     # cardano-node service configuration
     services.cardano-node = {
 
-      # Running rev: b9fbc8e3ee6080dbc19c6fa4a4e4c2f695060690
-      # https://github.com/input-output-hk/ouroboros-network/pull/3979
+      # Running PeerSharing + Light PeerSharing
+      # https://github.com/input-output-hk/ouroboros-network/pull/4019
       # Check niv dependencies
       cardanoNodePackages =
         cardano-node-development.legacyPackages.x86_64-linux.cardanoNodePackages;
 
       # Add particular RTView Config
-      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-west-${toString i}"; };
+      extraNodeInstanceConfig =
+        i : { TraceOptionNodeName = "server-us-west-${toString i}";
+              PeerSharing = "PeerSharingPublic";
+              TestEnableDevelopmentNetworkProtocols = true;
+            };
 
       instanceProducers =
         ifMainnet [ { accessPoints = [
@@ -296,7 +345,7 @@ in
                           port = mainnet-port;
                         }
                       ];
-                      advertise = false;
+                      advertise = true;
                       valency = 4;
                     }
                   ]
@@ -317,7 +366,7 @@ in
                           port = testnet-port;
                         }
                       ];
-                      advertise = false;
+                      advertise = true;
                       valency = 4;
                     }
                   ];
@@ -327,10 +376,24 @@ in
   server-us-east = { config, lib, pkgs, nodes, ... }: {
     deployment.targetHost = machine-ips.us-east-2;
 
+    # Set up blockperf public ip configuration parameter
+    services.blockperf.publicIP = machine-ips.us-east-2;
+
     # cardano-node service configuration
     services.cardano-node = {
+
+      # Running PeerSharing + Light PeerSharing
+      # https://github.com/input-output-hk/ouroboros-network/pull/4019
+      # Check niv dependencies
+      cardanoNodePackages =
+        cardano-node-development.legacyPackages.x86_64-linux.cardanoNodePackages;
+
       # Add particular RTView Config
-      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-us-east-${toString i}"; };
+      extraNodeInstanceConfig =
+        i : { TraceOptionNodeName = "server-us-east-${toString i}";
+              PeerSharing = "PeerSharingPublic";
+              TestEnableDevelopmentNetworkProtocols = true;
+            };
 
       instanceProducers =
         ifMainnet [ { accessPoints = [
@@ -344,7 +407,7 @@ in
                           port = mainnet-port;
                         }
                       ];
-                      advertise = false;
+                      advertise = true;
                       valency = 3;
                     }
                   ]
@@ -362,7 +425,7 @@ in
                           port = 3001;
                         }
                       ];
-                      advertise = false;
+                      advertise = true;
                       valency = 4;
                     }
                   ];
@@ -372,10 +435,24 @@ in
   server-jp = { config, lib, pkgs, nodes, ... }: {
     deployment.targetHost = machine-ips.ap-northeast-1;
 
+    # Set up blockperf public ip configuration parameter
+    services.blockperf.publicIP = machine-ips.ap-northeast-1;
+
     # cardano-node service configuration
     services.cardano-node = {
+
+      # Running PeerSharing + Light PeerSharing
+      # https://github.com/input-output-hk/ouroboros-network/pull/4019
+      # Check niv dependencies
+      cardanoNodePackages =
+        cardano-node-development.legacyPackages.x86_64-linux.cardanoNodePackages;
+
       # Add particular RTView Config
-      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-jp-${toString i}"; };
+      extraNodeInstanceConfig =
+        i : { TraceOptionNodeName = "server-us-jp-${toString i}";
+              PeerSharing = "PeerSharingPublic";
+              TestEnableDevelopmentNetworkProtocols = true;
+            };
 
       instanceProducers =
         ifMainnet [ { accessPoints = [
@@ -389,7 +466,7 @@ in
                           port = mainnet-port;
                         }
                       ];
-                      advertise = false;
+                      advertise = true;
                       valency = 3;
                     }
                   ]
@@ -407,7 +484,7 @@ in
                           port = testnet-port;
                         }
                       ];
-                      advertise = false;
+                      advertise = true;
                       valency = 4;
                     }
                   ];
@@ -417,10 +494,24 @@ in
   server-sg = { config, lib, pkgs, nodes, ... }: {
     deployment.targetHost = machine-ips.ap-southeast-1;
 
+    # Set up blockperf public ip configuration parameter
+    services.blockperf.publicIP = machine-ips.ap-southeast-1;
+
     # cardano-node service configuration
     services.cardano-node = {
+
+      # Running PeerSharing + Light PeerSharing
+      # https://github.com/input-output-hk/ouroboros-network/pull/4019
+      # Check niv dependencies
+      cardanoNodePackages =
+        cardano-node-development.legacyPackages.x86_64-linux.cardanoNodePackages;
+
       # Add particular RTView Config
-      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-sg-${toString i}"; };
+      extraNodeInstanceConfig =
+        i : { TraceOptionNodeName = "server-sg-${toString i}";
+              PeerSharing = "PeerSharingPublic";
+              TestEnableDevelopmentNetworkProtocols = true;
+            };
 
       instanceProducers =
         ifMainnet [ { accessPoints = [
@@ -437,7 +528,7 @@ in
                           port = mainnet-port;
                         }
                       ];
-                      advertise = false;
+                      advertise = true;
                       valency = 4;
                     }
                   ]
@@ -458,7 +549,7 @@ in
                           port = testnet-port;
                         }
                       ];
-                      advertise = false;
+                      advertise = true;
                       valency = 5;
                     }
                   ];
@@ -467,6 +558,9 @@ in
 
   server-au = { config, lib, pkgs, nodes, ... }: {
     deployment.targetHost = machine-ips.ap-southeast-2;
+
+    # Set up blockperf public ip configuration parameter
+    services.blockperf.publicIP = machine-ips.ap-southeast-2;
 
     # cardano-node service configuration
     services.cardano-node = {
@@ -510,10 +604,24 @@ in
   server-br = { config, lib, pkgs, nodes, ... }: {
     deployment.targetHost = machine-ips.sa-east-1;
 
+    # Set up blockperf public ip configuration parameter
+    services.blockperf.publicIP = machine-ips.sa-east-1;
+
     # cardano-node service configuration
     services.cardano-node = {
+
+      # Running PeerSharing + Light PeerSharing
+      # https://github.com/input-output-hk/ouroboros-network/pull/4019
+      # Check niv dependencies
+      cardanoNodePackages =
+        cardano-node-development.legacyPackages.x86_64-linux.cardanoNodePackages;
+
       # Add particular RTView Config
-      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-br-${toString i}"; };
+      extraNodeInstanceConfig =
+        i : { TraceOptionNodeName = "server-br-${toString i}";
+              PeerSharing = "PeerSharingPublic";
+              TestEnableDevelopmentNetworkProtocols = true;
+            };
 
       instanceProducers =
         ifMainnet [ { accessPoints = [
@@ -527,7 +635,7 @@ in
                           port = mainnet-port;
                         }
                       ];
-                      advertise = false;
+                      advertise = true;
                       valency = 3;
                     }
                   ]
@@ -545,7 +653,7 @@ in
                           port = testnet-port;
                         }
                       ];
-                      advertise = false;
+                      advertise = true;
                       valency = 4;
                     }
                   ];
@@ -555,10 +663,18 @@ in
   server-sa = { config, lib, pkgs, nodes, ... }: {
     deployment.targetHost = machine-ips.af-south-1;
 
+    # Set up blockperf public ip configuration parameter
+    services.blockperf.publicIP = machine-ips.af-south-1;
+
     # cardano-node service configuration
     services.cardano-node = {
       # Add particular RTView Config
-      extraNodeInstanceConfig = i : { TraceOptionNodeName = "server-sa-${toString i}"; };
+      extraNodeInstanceConfig =
+      i : { TraceOptionNodeName = "server-sa-${toString i}";
+            EnableP2P = false;
+          };
+
+      useNewTopology = lib.mkForce false;
 
       instanceProducers =
         ifMainnet [ { accessPoints = [
@@ -596,6 +712,9 @@ in
 
   server-eu = { config, lib, pkgs, nodes, ... }: {
     deployment.targetHost = machine-ips.eu-west-3;
+
+    # Set up blockperf public ip configuration parameter
+    services.blockperf.publicIP = machine-ips.eu-west-3;
 
     # cardano-node service configuration
     services.cardano-node = {
