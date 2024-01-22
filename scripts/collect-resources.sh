@@ -47,15 +47,15 @@ set xdata time
 set timefmt \"%Y-%m-%d %H:%M:%S UTC\"
 set xlabel offset 0,-3,0 font \",10\"
 set xlabel sprintf(\"First date: %s\", \"$FIRST_DATE\")
-set ylabel sprintf(\"Heap GiB\")
+set ylabel sprintf(\"Heap GB\")
 plot \"$2\" using 1:2 with lines"
 }
 
 # Get all resource log messages
-runInServers "journalctl -u cardano-node -b --no-pager -o json --until \"now\" | jq '. | .MESSAGE | try fromjson | select (.ns == \"Resources\")' > mainnet-resources.json"
+#runInServers "journalctl -u cardano-node -b --no-pager -o json --until \"now\" | jq '. | .MESSAGE | try fromjson | select (.ns == \"Resources\")' > mainnet-resources.json"
 
 # Get all log messages
-runInServers "journalctl -u cardano-node -b --no-pager -o json --since \"2 days ago\" --until \"now\" > mainnet-logs.json"
+#runInServers "journalctl -u cardano-node -b --no-pager -o json --since \"2 days ago\" --until \"now\" > mainnet-logs.json"
 
 #Remove all old pngs
 rm *.png
@@ -95,7 +95,7 @@ sendToServer "$server" "$server-gnuplot.gp"
 # Run gnuplot
 runInServer "$server" "nix-shell -p gnuplot --command \"gnuplot $server-gnuplot.gp\""
 
-# Fetch plot result
+# Fetch plot result 
 getFromServer "$server" "$server-output.png"
 done
 
