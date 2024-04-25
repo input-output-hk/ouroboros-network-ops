@@ -1,8 +1,8 @@
 # Example:
 keys:
-  - &sre $SOPS_AGE_PUBKEY1
-  - &group1-bp-a-1 $SOPS_AGE_PUBKEY2
-  - &group1-faucet-a-1 $SOPS_AGE_PUBKEY3
+  - &sre age1a38xzsfp4nq3vg60xjhjcxswxd0n5l4sdav0uu60tr6g32vww3ks8y9d4m
+  # - &group1-bp-a-1 $SOPS_AGE_PUBKEY2
+  # - &group1-faucet-a-1 $SOPS_AGE_PUBKEY3
 creation_rules:
   # -------------------------------------------------------
   # General environment secrets are admin only
@@ -24,13 +24,13 @@ creation_rules:
     key_groups:
     - age:
       - *sre
-      - *group1-faucet-a-1
+  #   - *group1-faucet-a-1
 
   - path_regex: secrets/groups/group1/deploy/.*$
     key_groups:
     - age:
       - *sre
-      - *group1-bp-a-1
+  #   - *group1-bp-a-1
 
   # -------------------------------------------------------
   # Workbench pool onboarding -- modify during creation
