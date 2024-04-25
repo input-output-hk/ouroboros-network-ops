@@ -62,7 +62,7 @@
     };
 
     # If using grafana cloud stack based monitoring.
-    infra.grafana.stackName = "network-team";
+    infra.grafana.stackName = "networkteam";
 
     # For defining deployment groups with varying configuration.  Adjust as needed.
     groups = {
