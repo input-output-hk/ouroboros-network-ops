@@ -3,19 +3,22 @@
 </p>
 
 <p align="center">
-  Welcome to the Cardano $REPO Repository
+  Welcome to the Ouroboros-network-ops Repository
   <br />
 </p>
 
-Cardano is a decentralized third-generation proof-of-stake blockchain platform and home to the ada cryptocurrency.
-It is the first blockchain platform to evolve out of a scientific philosophy and a research-first driven approach.
+Cardano is a decentralized third-generation proof-of-stake blockchain platform
+and home to the ada cryptocurrency. It is the first blockchain platform to
+evolve out of a scientific philosophy and a research-first driven approach.
 
-# Cardano $REPO
+# Ouroboros-network-ops
 
-The $REPO project serves as ...
+The ouroboros-network-ops project serves as a cardano-node test cluster for the
+network team.
 
-It utilizes [flake-parts](https://flake.parts/) and re-usable
-nixosModules and flakeModules from [cardano-parts](https://github.com/input-output-hk/cardano-parts).
+It utilizes [flake-parts](https://flake.parts/) and re-usable nixosModules and
+flakeModules from
+[cardano-parts](https://github.com/input-output-hk/cardano-parts).
 
 ## Getting started
 
@@ -23,7 +26,8 @@ While working on the next step, you can already start the devshell using:
 
     nix develop
 
-This will be done automatically if you are using [direnv](https://direnv.net/).
+This will be done automatically if you are using [direnv](https://direnv.net/)
+and issue `direnv allow`.
 
 ## AWS
 
@@ -44,10 +48,13 @@ SRE cluster secret in `~/.age/credentials`:
     # $REPO: sre
     AGE-SECRET-KEY-***********************************************************
 
+If needed, a new secret can be generated with `age-keygen`.
+
 ## SSH
 
-If your credentials are correct, you will be able to access SSH after creating
-an `./.ssh_config` using:
+If your credentials are correct, and the cluster is already bootstrapped with
+openTofu infrastructure, you will be able to access SSH after creating an
+`./.ssh_config` using:
 
     just save-ssh-config
 

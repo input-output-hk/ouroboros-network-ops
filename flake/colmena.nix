@@ -13,17 +13,23 @@ in
   with lib; {
     flake.colmena = let
       # Region defs:
-      eu-central-1.aws.region = "eu-central-1";
-      eu-west-1.aws.region = "eu-west-1";
-      us-east-2.aws.region = "us-east-2";
+      au.aws.region = "ap-southeast-2";
+      br.aws.region = "sa-east-1";
+      # eu1.aws.region = "eu-central-1";
+      eu3.aws.region = "eu-west-3";
+      jp.aws.region = "ap-northeast-1";
+      sa.aws.region = "af-south-1";
+      sg.aws.region = "ap-southeast-1";
+      us1.aws.region = "us-west-1";
+      us2.aws.region = "us-east-2";
 
       # Instance defs:
-      t3a-small.aws.instance.instance_type = "t3a.small";
-      t3a-medium.aws.instance.instance_type = "t3a.medium";
-      m5a-large.aws.instance.instance_type = "m5a.large";
+      # t3a-small.aws.instance.instance_type = "t3a.small";
+      m6i-xlarge.aws.instance.instance_type = "m6i.xlarge";
 
       # Helper fns:
       ebs = size: {aws.instance.root_block_device.volume_size = mkDefault size;};
+
       # ebsIops = iops: {aws.instance.root_block_device.iops = mkDefault iops;};
       # ebsTp = tp: {aws.instance.root_block_device.throughput = mkDefault tp;};
       # ebsHighPerf = recursiveUpdate (ebsIops 10000) (ebsTp 1000);
@@ -54,63 +60,24 @@ in
           inputs.cardano-parts.nixosModules.profile-cardano-node-group
         ];
       };
-
-      # Mithril signing config
-      # mithrilRelay = {imports = [inputs.cardano-parts.nixosModules.profile-mithril-relay];};
-      # declMRel = node: {services.mithril-signer.relayEndpoint = nixosConfigurations.${node}.config.ips.privateIpv4;};
-      # declMSigner = node: {services.mithril-relay.signerIp = nixosConfigurations.${node}.config.ips.privateIpv4;};
-
       # Profiles
-      pre = {imports = [inputs.cardano-parts.nixosModules.profile-pre-release];};
-
-      smash = {
-        imports = [
-          config.flake.cardano-parts.cluster.groups.default.meta.cardano-smash-service
-          inputs.cardano-parts.nixosModules.profile-cardano-smash
-          {services.cardano-smash.acmeEmail = "devops@iohk.io";}
-        ];
-      };
-
-      # Snapshots: add this to a dbsync machine defn and deploy; remove once the snapshot is restored.
-      # Snapshots for mainnet can be found at: https://update-cardano-mainnet.iohk.io/cardano-db-sync/index.html
-      # snapshot = {services.cardano-db-sync.restoreSnapshot = "$SNAPSHOT_URL";};
-
+      # pre = {imports = [inputs.cardano-parts.nixosModules.profile-pre-release];};
+      #
       # Topology profiles
       # Note: not including a topology profile will default to edge topology if module profile-cardano-node-group is imported
-      topoBp = {imports = [inputs.cardano-parts.nixosModules.profile-cardano-node-topology {services.cardano-node-topology = {role = "bp";};}];};
+      # topoBp = {imports = [inputs.cardano-parts.nixosModules.profile-cardano-node-topology {services.cardano-node-topology = {role = "bp";};}];};
       topoRel = {imports = [inputs.cardano-parts.nixosModules.profile-cardano-node-topology {services.cardano-node-topology = {role = "relay";};}];};
-
+      #
       # Roles
-      bp = {
-        imports = [
-          inputs.cardano-parts.nixosModules.role-block-producer
-          topoBp
-          # Disable machine DNS creation for block producers to avoid ip discovery
-          {cardano-parts.perNode.meta.enableDns = false;}
-        ];
-      };
+      # bp = {
+      #   imports = [
+      #     inputs.cardano-parts.nixosModules.role-block-producer
+      #     topoBp
+      #     # Disable machine DNS creation for block producers to avoid ip discovery
+      #     {cardano-parts.perNode.meta.enableDns = false;}
+      #   ];
+      # };
       rel = {imports = [inputs.cardano-parts.nixosModules.role-relay topoRel];};
-
-      dbsync = {
-        imports = [
-          config.flake.cardano-parts.cluster.groups.default.meta.cardano-node-service
-          config.flake.cardano-parts.cluster.groups.default.meta.cardano-db-sync-service
-          inputs.cardano-parts.nixosModules.profile-cardano-db-sync
-          inputs.cardano-parts.nixosModules.profile-cardano-node-group
-          inputs.cardano-parts.nixosModules.profile-cardano-postgres
-        ];
-      };
-
-      faucet = {
-        imports = [
-          # TODO: Module import fixup for local services
-          # config.flake.cardano-parts.cluster.groups.default.meta.cardano-faucet-service
-          inputs.cardano-parts.nixosModules.service-cardano-faucet
-
-          inputs.cardano-parts.nixosModules.profile-cardano-faucet
-          {services.cardano-faucet.acmeEmail = "devops@iohk.io";}
-        ];
-      };
     in {
       meta = {
         nixpkgs = import inputs.nixpkgs {
@@ -150,11 +117,13 @@ in
         nixosModules.ip-module-check
       ];
 
-      preview1-bp-a-1 = {imports = [eu-central-1 t3a-small (ebs 40) (group "preview1") node bp];};
-      preview1-rel-a-1 = {imports = [eu-central-1 t3a-small (ebs 40) (group "preview1") node rel];};
-      preview1-rel-b-1 = {imports = [eu-west-1 t3a-small (ebs 40) (group "preview1") node rel];};
-      preview1-rel-c-1 = {imports = [us-east-2 t3a-small (ebs 40) (group "preview1") node rel];};
-      preview1-dbsync-a-1 = {imports = [eu-central-1 m5a-large (ebs 40) (group "preview1") dbsync smash];};
-      preview1-faucet-a-1 = {imports = [eu-central-1 t3a-medium (ebs 40) (group "preview1") node faucet pre];};
+      mainnet1-rel-au-1 = {imports = [au m6i-xlarge (ebs 200) (group "mainnet1") node rel];};
+      mainnet1-rel-br-1 = {imports = [br m6i-xlarge (ebs 200) (group "mainnet1") node rel];};
+      mainnet1-rel-eu3-1 = {imports = [eu3 m6i-xlarge (ebs 200) (group "mainnet1") node rel];};
+      mainnet1-rel-jp-1 = {imports = [jp m6i-xlarge (ebs 200) (group "mainnet1") node rel];};
+      mainnet1-rel-sa-1 = {imports = [sa m6i-xlarge (ebs 200) (group "mainnet1") node rel];};
+      mainnet1-rel-sg-1 = {imports = [sg m6i-xlarge (ebs 200) (group "mainnet1") node rel];};
+      mainnet1-rel-us1-1 = {imports = [us1 m6i-xlarge (ebs 200) (group "mainnet1") node rel];};
+      mainnet1-rel-us2-1 = {imports = [us2 m6i-xlarge (ebs 200) (group "mainnet1") node rel];};
     };
   }
