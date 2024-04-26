@@ -60,14 +60,65 @@ in
           inputs.cardano-parts.nixosModules.profile-cardano-node-group
         ];
       };
+
+      # Blockperf for bootstrap nodes
+      # Utilize the /etc/hosts list for bp ip lookups
+      # bpDnsList = map (bpNode: "${bpNode}.public-ipv4") (filter (hasInfix "-bp-") (attrNames nixosConfigurations));
+
+      bperf = {
+        imports = [
+          inputs.cardano-parts.nixosModules.profile-blockperf
+          {
+            services.blockperf = {
+              name = "iog-network-team";
+              clientCert = "blockperf-iog-network-team-certificate.pem.enc";
+              clientKey = "blockperf-iog-network-team-private.key.enc";
+            };
+          }
+        ];
+      };
+
       # Profiles
       # pre = {imports = [inputs.cardano-parts.nixosModules.profile-pre-release];};
       #
       # Topology profiles
       # Note: not including a topology profile will default to edge topology if module profile-cardano-node-group is imported
       # topoBp = {imports = [inputs.cardano-parts.nixosModules.profile-cardano-node-topology {services.cardano-node-topology = {role = "bp";};}];};
-      topoRel = {imports = [inputs.cardano-parts.nixosModules.profile-cardano-node-topology {services.cardano-node-topology = {role = "relay";};}];};
       #
+      # Note: When a relay role is used, topology will automatically set localRoots for all other machines in the group
+      # topoRel = {imports = [inputs.cardano-parts.nixosModules.profile-cardano-node-topology {services.cardano-node-topology = {role = "relay";};}];};
+      #
+      # To customize localRoots, the standard cardano-node service options can be used, but more convienent options are found in
+      # cardano-parts flake/nixosModules/profile-cardano-node-topology.nix and flakeModules/lib/topology.nix.
+      # Example: when localRoots nodes belong to the cluster, using `extraNodeListProducers` is handy:
+      mkExtraNodeListProducers = list: {
+        imports = [
+          inputs.cardano-parts.nixosModules.profile-cardano-node-topology
+          {
+            services.cardano-node-topology = {
+              role = null;
+              producerTopologyFn = "empty";
+              extraNodeListProducers =
+                map (s: {
+                  name = "mainnet1-rel-${s}-1";
+                  trustable = true;
+                })
+                list;
+            };
+          }
+        ];
+      };
+
+      # Custom declared localRoots topologies
+      topoAu = mkExtraNodeListProducers ["sg" "jp" "us1"];
+      topoBr = mkExtraNodeListProducers ["sa" "us1" "us2"];
+      topoEu3 = mkExtraNodeListProducers ["sa" "sg" "us2"];
+      topoJp = mkExtraNodeListProducers ["sg" "us1" "au"];
+      topoSa = mkExtraNodeListProducers ["sg" "br" "eu3"];
+      topoSg = mkExtraNodeListProducers ["sa" "eu3" "au" "jp"];
+      topoUs1 = mkExtraNodeListProducers ["us2" "br" "jp" "au"];
+      topoUs2 = mkExtraNodeListProducers ["eu3" "us1" "br"];
+
       # Roles
       # bp = {
       #   imports = [
@@ -77,7 +128,20 @@ in
       #     {cardano-parts.perNode.meta.enableDns = false;}
       #   ];
       # };
-      rel = {imports = [inputs.cardano-parts.nixosModules.role-relay topoRel];};
+
+      # When the relay role is used:
+      # rel = {imports = [inputs.cardano-parts.nixosModules.role-relay topoRel];};
+
+      # When customized per machine topology is needed:
+      rel = {
+        imports = [
+          # Relay role (opens the node port)
+          inputs.cardano-parts.nixosModules.role-relay
+
+          # Include blockPerf monitoring on all relay class nodes
+          bperf
+        ];
+      };
     in {
       meta = {
         nixpkgs = import inputs.nixpkgs {
@@ -117,13 +181,13 @@ in
         nixosModules.ip-module-check
       ];
 
-      mainnet1-rel-au-1 = {imports = [au m6i-xlarge (ebs 200) (group "mainnet1") node rel];};
-      mainnet1-rel-br-1 = {imports = [br m6i-xlarge (ebs 200) (group "mainnet1") node rel];};
-      mainnet1-rel-eu3-1 = {imports = [eu3 m6i-xlarge (ebs 200) (group "mainnet1") node rel];};
-      mainnet1-rel-jp-1 = {imports = [jp m6i-xlarge (ebs 200) (group "mainnet1") node rel];};
-      mainnet1-rel-sa-1 = {imports = [sa m6i-xlarge (ebs 200) (group "mainnet1") node rel];};
-      mainnet1-rel-sg-1 = {imports = [sg m6i-xlarge (ebs 200) (group "mainnet1") node rel];};
-      mainnet1-rel-us1-1 = {imports = [us1 m6i-xlarge (ebs 200) (group "mainnet1") node rel];};
-      mainnet1-rel-us2-1 = {imports = [us2 m6i-xlarge (ebs 200) (group "mainnet1") node rel];};
+      mainnet1-rel-au-1 = {imports = [au m6i-xlarge (ebs 300) (group "mainnet1") node rel topoAu];};
+      mainnet1-rel-br-1 = {imports = [br m6i-xlarge (ebs 300) (group "mainnet1") node rel topoBr];};
+      mainnet1-rel-eu3-1 = {imports = [eu3 m6i-xlarge (ebs 300) (group "mainnet1") node rel topoEu3];};
+      mainnet1-rel-jp-1 = {imports = [jp m6i-xlarge (ebs 300) (group "mainnet1") node rel topoJp];};
+      mainnet1-rel-sa-1 = {imports = [sa m6i-xlarge (ebs 300) (group "mainnet1") node rel topoSa];};
+      mainnet1-rel-sg-1 = {imports = [sg m6i-xlarge (ebs 300) (group "mainnet1") node rel topoSg];};
+      mainnet1-rel-us1-1 = {imports = [us1 m6i-xlarge (ebs 300) (group "mainnet1") node rel topoUs1];};
+      mainnet1-rel-us2-1 = {imports = [us2 m6i-xlarge (ebs 300) (group "mainnet1") node rel topoUs2];};
     };
   }
