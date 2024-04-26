@@ -303,11 +303,11 @@
         "treefmt-nix": "treefmt-nix_2"
       },
       "locked": {
-        "lastModified": 1714088009,
-        "narHash": "sha256-Nqi8Dw7t8Lvx0IJPoRHExSC+oHH03ekDPOgO7+L9GyM=",
+        "lastModified": 1714171227,
+        "narHash": "sha256-vdW6f8B+4/iNWLSjaOHheJigjbXaMEv4RbKJsKQv2Tg=",
         "owner": "input-output-hk",
         "repo": "cardano-parts",
-        "rev": "152531b5fb88e88113b4fb11ec7af8fe2bb07af3",
+        "rev": "f89edf674460234620b4639d0c10e92975dfaabf",
         "type": "github"
       },
       "original": {
@@ -739,11 +739,11 @@
         "sodium": "sodium"
       },
       "locked": {
-        "lastModified": 1713465727,
-        "narHash": "sha256-YMOygJz3KVOoWP4D7SyPXBxFyll8j2OeqBW837DNgK0=",
+        "lastModified": 1714144038,
+        "narHash": "sha256-PehKNnOpZOVImTjYpx/4ruQD6VHTK2E3WabgSFRncdk=",
         "owner": "input-output-hk",
         "repo": "iohk-nix",
-        "rev": "05fcd3aa032337e8d16093ee23fcf29fa5caf40d",
+        "rev": "f6549c22ca4ab15fc7f9e8f15ce58b0f2100bc51",
         "type": "github"
       },
       "original": {
@@ -761,11 +761,11 @@
         "sodium": "sodium_2"
       },
       "locked": {
-        "lastModified": 1713468256,
-        "narHash": "sha256-WfnAu7xX8gJzmTqM/8omdK4jyW+A/Ell+3C5zUN5ha8=",
+        "lastModified": 1714147461,
+        "narHash": "sha256-WXNiNSwcVVmWttIfdzL4gem7zue9lXBUn+/VKLqL2Yk=",
         "owner": "input-output-hk",
         "repo": "iohk-nix",
-        "rev": "5bfea9faf05d5c36ec1a049eb870cf02d37aab60",
+        "rev": "4d796040c347327f3ee1d327587b7d6b0229bd02",
         "type": "github"
       },
       "original": {
