@@ -11,6 +11,9 @@ null := ""
 stateDir := "STATEDIR=" + statePrefix / "$(basename $(git remote get-url origin))"
 statePrefix := "~/.local/share"
 
+# To skip ptrace permission modification prompting, env var AUTO_SET_ENV can be set to `false`
+autoSetEnv := env_var_or_default("AUTO_SET_ENV","unset")
+
 # Environment variables can be used to change the default template diff and path comparison sources.
 # If TEMPLATE_PATH is set, it will have precedence, otherwise git url will be used for source templates.
 templateBranch := env_var_or_default("TEMPLATE_BRANCH","main")
@@ -55,7 +58,7 @@ checkEnvWithoutOverride := '''
 
 checkSshConfig := '''
   if not ('.ssh_config' | path exists) {
-    print "Please run tofu first to create the .ssh_config file"
+    print "Please run `just save-ssh-config` first to create the .ssh_config file"
     exit 1
   }
 '''
@@ -149,7 +152,7 @@ cf STACKNAME:
   rain deploy --debug --termination-protection --yes ./cloudFormation/{{STACKNAME}}.json
 
 # Prep dbsync for delegation analysis
-dbsync-prep ENV HOST ACCTS="500":
+dbsync-prep ENV HOST ACCTS="501":
   #!/usr/bin/env bash
   set -euo pipefail
   TMPFILE="/tmp/create-faucet-stake-keys-table-{{ENV}}.sql"
@@ -200,7 +203,7 @@ dbsync-pool-analyze HOSTNAME:
   echo
 
   echo "The string of indexes of faucet pools to de-delegate from the JSON above are:"
-  jq '.faucet_to_dedelegate | to_entries | map(.key) | join(" ")' <<< "$JSON"
+  jq -r '.faucet_to_dedelegate | to_entries | map(.key) | join(" ")' <<< "$JSON"
   echo
 
   MAX_SHIFT=$(grep -oP '^faucet_pool_to_dedelegate_shift_pct[[:space:]]+\| \K.*$' <<< "$QUERY")
@@ -361,7 +364,20 @@ query-tip ENV TESTNET_MAGIC=null:
   set -euo pipefail
   {{checkEnv}}
   {{stateDir}}
-  cardano-cli query tip \
+
+  if [ "${USE_SHELL_BINS:-}" = "true" ]; then
+    CARDANO_CLI="cardano-cli"
+  elif [ -n "${UNSTABLE:-}" ] && [ "${UNSTABLE:-}" != "true" ]; then
+    CARDANO_CLI="cardano-cli"
+  elif [ "${UNSTABLE:-}" = "true" ]; then
+    CARDANO_CLI="cardano-cli-ng"
+  elif [[ "$ENV" =~ mainnet$|preprod$|preview$|shelley-qa$ ]]; then
+    CARDANO_CLI="cardano-cli"
+  elif [[ "$ENV" =~ private$|sanchonet$|demo$ ]]; then
+    CARDANO_CLI="cardano-cli-ng"
+  fi
+
+  eval "$CARDANO_CLI" query tip \
     --socket-path "$STATEDIR/node-{{ENV}}.socket" \
     --testnet-magic "$MAGIC"
 
@@ -438,8 +454,32 @@ set-default-cardano-env ENV TESTNET_MAGIC=null PPID=null:
   echo "  CARDANO_NODE_NETWORK_ID=$MAGIC"
   echo "  TESTNET_MAGIC=$MAGIC"
 
+  # Ptrace permissions are no longer "classic" by default starting in nixpkgs 24.05
+  AUTO_SET_ENV={{autoSetEnv}}
+  if [ -f /proc/sys/kernel/yama/ptrace_scope ] && [ "$AUTO_SET_ENV" != "false" ]; then
+     if [ "$(cat /proc/sys/kernel/yama/ptrace_scope)" = "0" ]; then
+       AUTO_SET_ENV=true
+     else
+       echo
+       echo "For just scripts to automatically set cardano environment variables in bash and zsh shells, ptrace classic permission needs to be enabled."
+       echo "This requires sudo access and will persist ptrace classic permission until the next reboot by writing:"
+       echo "  echo 0 > /proc/sys/kernel/yama/ptrace_scope"
+       echo
+       read -p "Do you have sudo access and wish to proceed [yY]? " -n 1 -r
+       echo
+       if [[ $REPLY =~ ^[Yy]$ ]]; then
+         if sudo bash -c 'echo 0 > /proc/sys/kernel/yama/ptrace_scope'; then
+           echo "ptrace_scope classic permission successfully set."
+           AUTO_SET_ENV=true
+         else
+           echo "ptrace_scope classic permission change unsuccessful."
+         fi
+       fi
+     fi
+  fi
+
   SH=$(cat /proc/$SHELLPID/comm)
-  if [[ "$SH" =~ bash$|zsh$ ]]; then
+  if [[ "$SH" =~ bash$|zsh$ ]] && [ "$AUTO_SET_ENV" = "true" ]; then
     # Modifying a parent shells env vars is generally not done
     # This is a hacky way to accomplish it in bash and zsh
     gdb -iex "set auto-load no" /proc/$SHELLPID/exe $SHELLPID <<END >/dev/null
@@ -457,7 +497,13 @@ set-default-cardano-env ENV TESTNET_MAGIC=null PPID=null:
     fi
   else
     echo
-    echo "Unexpected shell: $SH"
+    if ! [[ "$SH" =~ bash$|zsh$ ]]; then
+      echo "Unexpected shell: $SH"
+    fi
+
+    if [ "$AUTO_SET_ENV" != "true" ]; then
+      echo "ptrace_scope: classic permission not enabled"
+    fi
     echo "The following vars will need to be manually exported, or the equivalent operation for your shell:"
     echo "  export CARDANO_NODE_SOCKET_PATH=$DEFAULT_PATH"
     echo "  export CARDANO_NODE_NETWORK_ID=$MAGIC"
@@ -589,21 +635,34 @@ start-demo:
   export USE_ENCRYPTION=true
   export USE_DECRYPTION=true
   export USE_NODE_CONFIG_BP=false
-  export DEBUG=1
+  export USE_CREATE_TESTNET_DATA=false
+  export DEBUG=true
 
-  SECURITY_PARAM=8 \
-    SLOT_LENGTH=200 \
-    START_TIME=$(date --utc +"%Y-%m-%dT%H:%M:%SZ" --date " now + 30 seconds") \
+  export SECURITY_PARAM=8
+  export SLOT_LENGTH=100
+  export START_TIME=$(date --utc +"%Y-%m-%dT%H:%M:%SZ" --date " now + 30 seconds")
+  if [ "$USE_CREATE_TESTNET_DATA" = true ]; then
+    ERA_CMD="alonzo" \
+      nix run .#job-gen-custom-node-config-data
+  else
     nix run .#job-gen-custom-node-config
+  fi
 
   nix run .#job-create-stake-pool-keys
 
+  if [ "$USE_DECRYPTION" = true ]; then
+    BFT_CREDS=$(just sops-decrypt-binary "$KEY_DIR"/delegate-keys/bulk.creds.bft.json)
+    POOL_CREDS=$(just sops-decrypt-binary "$STAKE_POOL_DIR"/no-deploy/bulk.creds.pools.json)
+  else
+    BFT_CREDS=$(cat "$KEY_DIR"/delegate-keys/bulk.creds.bft.json)
+    POOL_CREDS=$(cat "$STAKE_POOL_DIR"/no-deploy/bulk.creds.pools.json)
+  fi
   (
-    jq -r '.[]' < <(just sops-decrypt-binary "$KEY_DIR"/delegate-keys/bulk.creds.bft.json)
-    jq -r '.[]' < <(just sops-decrypt-binary "$STAKE_POOL_DIR"/no-deploy/bulk.creds.pools.json)
+    jq -r '.[]' <<< "$BFT_CREDS"
+    jq -r '.[]' <<< "$POOL_CREDS"
   ) | jq -s > "$BULK_CREDS"
 
-  echo "Start cardano-node in the background. Run \"just stop\" to stop"
+  echo "Start cardano-node in the background. Run \"just stop-node demo\" to stop"
   NODE_CONFIG="$DATA_DIR/node-config.json" \
     NODE_TOPOLOGY="$DATA_DIR/topology.json" \
     SOCKET_PATH="$STATEDIR/node-demo.socket" \
@@ -613,13 +672,15 @@ start-demo:
   sleep 30
   echo
 
-  echo "Moving genesis utxo..."
-  BYRON_SIGNING_KEY="$KEY_DIR"/utxo-keys/shelley.000.skey \
-    ERA_CMD="alonzo" \
-    nix run .#job-move-genesis-utxo
-  echo "Sleeping 7 seconds until $(date -d  @$(($(date +%s) + 7)))"
-  sleep 7
-  echo
+  if [ "$USE_CREATE_TESTNET_DATA" = false ]; then
+    echo "Moving genesis utxo..."
+    BYRON_SIGNING_KEY="$KEY_DIR"/utxo-keys/shelley.000.skey \
+      ERA_CMD="alonzo" \
+      nix run .#job-move-genesis-utxo
+    echo "Sleeping 7 seconds until $(date -d  @$(($(date +%s) + 7)))"
+    sleep 7
+    echo
+  fi
 
   echo "Registering stake pools..."
   POOL_RELAY=demo.local \
@@ -633,8 +694,8 @@ start-demo:
   echo "Delegating rewards stake key..."
   ERA_CMD="alonzo" \
     nix run .#job-delegate-rewards-stake-key
-  echo "Sleeping 320 seconds until $(date -d  @$(($(date +%s) + 320)))"
-  sleep 320
+  echo "Sleeping 160 seconds until $(date -d  @$(($(date +%s) + 160)))"
+  sleep 160
   echo
 
   echo "Forking to babbage..."
@@ -642,8 +703,8 @@ start-demo:
   MAJOR_VERSION=7 \
     ERA_CMD="alonzo" \
     nix run .#job-update-proposal-hard-fork
-  echo "Sleeping 320 seconds until $(date -d  @$(($(date +%s) + 320)))"
-  sleep 320
+  echo "Sleeping 160 seconds until $(date -d  @$(($(date +%s) + 160)))"
+  sleep 160
   echo
 
   echo "Forking to babbage (intra-era)..."
@@ -651,8 +712,8 @@ start-demo:
   MAJOR_VERSION=8 \
     ERA_CMD="babbage" \
     nix run .#job-update-proposal-hard-fork
-  echo "Sleeping 320 seconds until $(date -d  @$(($(date +%s) + 320)))"
-  sleep 320
+  echo "Sleeping 160 seconds until $(date -d  @$(($(date +%s) + 160)))"
+  sleep 160
   echo
 
   echo "Forking to conway..."
@@ -660,8 +721,8 @@ start-demo:
   MAJOR_VERSION=9 \
     ERA_CMD="babbage" \
     nix run .#job-update-proposal-hard-fork
-  echo "Sleeping 320 seconds until $(date -d  @$(($(date +%s) + 320)))"
-  sleep 320
+  echo "Sleeping 160 seconds until $(date -d  @$(($(date +%s) + 160)))"
+  sleep 160
   echo
 
   just query-tip demo
@@ -738,7 +799,7 @@ template-diff FILE *ARGS:
   fi
 
   if [ "{{templatePath}}" = "no-path-given" ]; then
-    SRC_FILE="<(curl -sL \"{{templateUrl}}/{{FILE}}\")"
+    SRC_FILE="<(curl -H 'Cache-Control: no-cache' -sL \"{{templateUrl}}/{{FILE}}\")"
     SRC_NAME="{{templateUrl}}/{{FILE}}"
   else
     SRC_FILE="{{templatePath}}/{{FILE}}"
@@ -757,7 +818,7 @@ template-patch FILE:
   fi
 
   if [ "{{templatePath}}" = "no-path-given" ]; then
-    SRC_FILE="<(curl -sL \"{{templateUrl}}/{{FILE}}\")"
+    SRC_FILE="<(curl -H 'Cache-Control: no-cache' -sL \"{{templateUrl}}/{{FILE}}\")"
   else
     SRC_FILE="{{templatePath}}/{{FILE}}"
   fi
