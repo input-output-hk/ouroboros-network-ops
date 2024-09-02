@@ -101,6 +101,16 @@ in
       };
 
       # Profiles
+      customRts = (nixos: let 
+        cfg = nixos.config.services.cardano-node;
+			in {
+        services.cardano-node.rtsArgs = nixos.lib.mkForce [
+          # "-N${toString (cfg.totalCpuCount / cfg.instances)}"
+          "-N4"
+          "-A16m"
+          "-M${toString (cfg.totalMaxHeapSizeMiB / cfg.instances)}M"
+        ];
+      });
       # pre = {imports = [inputs.cardano-parts.nixosModules.profile-pre-release];};
       #
       # Topology profiles
@@ -201,6 +211,7 @@ in
         inputs.cardano-parts.nixosModules.profile-grafana-agent
         nixosModules.common
         nixosModules.ip-module-check
+        customRts
       ];
 
       mainnet1-rel-au-1 = {imports = [au m6i-xlarge (ebs 300) (group "mainnet1") node rel topoAu];};
