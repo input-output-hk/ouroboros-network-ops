@@ -135,3 +135,7 @@ Or simply decrypt a KMS or sops age secret with:
     sops -d ./secrets/github-token.enc
 
 See also the `just sops-<encrypt|decrypt>-binary` recipes for encrypting or decrypting age binary blobs.
+
+## Monitoring
+
+Grafana monitoring of nodes managed by the networking team is available [here](https://networkteam.monitoring.aws.iohkdev.io/?orgId=1)
