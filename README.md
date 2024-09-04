@@ -139,3 +139,16 @@ See also the `just sops-<encrypt|decrypt>-binary` recipes for encrypting or decr
 ## Monitoring
 
 Grafana monitoring of nodes managed by the networking team is available [here](https://networkteam.monitoring.aws.iohkdev.io/?orgId=1)
+
+### Modify grafana dashboard
+
+Grafana templates are available [here](./flake/opentofu/grafana/dashboards).
+Note that one can modify a dashboard in Grafana, download the JSON model and
+commit it in this repo.
+
+### Deploying
+
+`ssh` to `dev-deployer`, go to `ouroboros-network-ops` directory and execute:
+```
+just tf grafana apply
+```
