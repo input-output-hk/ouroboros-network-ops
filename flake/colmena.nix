@@ -101,7 +101,7 @@ in
       };
 
       # Profiles
-      customRts = (nixos: let 
+      customRts = (nixos: let
         cfg = nixos.config.services.cardano-node;
 			in {
         services.cardano-node.rtsArgs = nixos.lib.mkForce [
@@ -111,6 +111,17 @@ in
           "-M${toString (cfg.totalMaxHeapSizeMiB / cfg.instances)}M"
         ];
       });
+
+      # Tracing
+      tracers = {
+        services.cardano-node.extraNodeConfig.LocalTxMonitorProtocol = true;
+        services.cardano-node.extraNodeConfig.options = {
+          mapSeverity = {
+            cardano.node.LocalTxMonitorProtocol = "Debug";
+          };
+        };
+      };
+
       # pre = {imports = [inputs.cardano-parts.nixosModules.profile-pre-release];};
       #
       # Topology profiles
@@ -212,10 +223,11 @@ in
         nixosModules.common
         nixosModules.ip-module-check
         customRts
+        tracers
       ];
 
       mainnet1-rel-au-1 = {imports = [au m6i-xlarge (ebs 300) (group "mainnet1") node rel topoAu];};
-      mainnet1-rel-br-1 = {imports = [br m6i-xlarge (ebs 300) (group "mainnet1") node8-12-2 rel topoBr];};
+      mainnet1-rel-br-1 = {imports = [br m6i-xlarge (ebs 300) (group "mainnet1") node rel topoBr];};
       mainnet1-rel-eu3-1 = {imports = [eu3 m6i-xlarge (ebs 300) (group "mainnet1") node rel topoEu3];};
       mainnet1-rel-jp-1 = {imports = [jp m6i-xlarge (ebs 300) (group "mainnet1") node rel topoJp];};
       mainnet1-rel-sa-1 = {imports = [sa m6i-xlarge (ebs 300) (group "mainnet1") node rel topoSa];};
