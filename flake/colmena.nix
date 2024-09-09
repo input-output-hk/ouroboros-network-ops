@@ -117,7 +117,7 @@ in
         services.cardano-node.extraNodeConfig.LocalTxMonitorProtocol = true;
         services.cardano-node.extraNodeConfig.options = {
           mapSeverity = {
-            cardano.node.LocalTxMonitorProtocol = "Debug";
+            "cardano.node.LocalTxMonitorProtocol" = "Debug";
           };
         };
       };
