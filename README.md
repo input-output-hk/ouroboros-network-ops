@@ -152,3 +152,170 @@ commit it in this repo.
 ```
 just tf grafana apply
 ```
+## Updating the Deployment
+
+This deployment uses
+[cardano-parts](https://github.com/input-output-hk/cardano-parts), which
+periodically releases new features and `cardano-node` versions. Therefore,
+it’s necessary to update the `cardano-parts` version in this repository. This
+section provides a step-by-step guide to perform the update.
+
+### Environment Setup
+
+Before starting, ensure that you have the appropriate environment:
+
+- **Using the `dev-deployer` machine**: The `direnv` tool will automatically
+  load the Nix development shell.
+- **Using a local copy**: If working from a local repository, run the
+  following command to enable the necessary Nix features:
+
+  ```bash
+  nix --extra-experimental-features fetch-closure develop
+  ```
+  _Note_: Updating from the `dev-deployer` machine is recommended because you
+  can immediately test the changes. However, updating from a local copy makes
+  opening a PR easier, as the `dev-deployer` machine lacks GitHub credentials.
+
+  _Note_: For those working regularly in this repo, it may be worth mentioning
+  that the `fetch-closure` experimental feature can be added to the
+  `nix.conf` file so it doesn't need to be included manually on the cli each
+  time. This would then also allow using direnv to automatically load the nix
+  develop default shell when entering the local repo directory.
+
+### Step 1: Check Current `cardano-parts` Version
+
+To check the current version of `cardano-parts`, run:
+
+```bash
+nix flake metadata | grep cardano-parts
+```
+
+This command will return an output similar to the following:
+
+```
+├───cardano-parts: github:input-output-hk/cardano-parts/01f54d8feac449f846f33988f7d74711a1b856da
+│   │   ├───nixpkgs follows input 'cardano-parts/nixpkgs'
+│   │   ├───nixpkgs follows input 'cardano-parts/nixpkgs'
+│   │   │   └───nixpkgs follows input 'cardano-parts/haskell-nix/hydra/nix/nixpkgs'
+│   │   ├───nixpkgs follows input 'cardano-parts/haskell-nix/nixpkgs-unstable'
+│   │   └───stackage follows input 'cardano-parts/empty-flake'
+│       └───nixpkgs follows input 'cardano-parts/nixpkgs'
+├───flake-parts follows input 'cardano-parts/flake-parts'
+├───nixpkgs follows input 'cardano-parts/nixpkgs'
+└───nixpkgs-unstable follows input 'cardano-parts/nixpkgs-unstable'
+```
+
+At the time of writing, the repository uses the `cardano-parts` revision `01f54d8feac449f846f33988f7d74711a1b856da`.
+
+### Step 2: Identify the Associated PR
+
+To see which pull request (PR) corresponds to the current revision:
+
+1. Visit the [cardano-parts `main` commits page](https://github.com/input-output-hk/cardano-parts/commits/main).
+2. Locate the commit that matches your current revision, or go directly to the
+   [commit URL for the current version](https://github.com/input-output-hk/cardano-parts/commits/01f54d8feac449f846f33988f7d74711a1b856da).
+
+For example, revision `01f54d8feac449f846f33988f7d74711a1b856da` corresponds
+to [PR #48](https://github.com/input-output-hk/cardano-parts/pull/48).
+
+### Step 3: Review Following PRs
+
+Once you’ve identified the current PR, determine which PRs have been merged
+since. For instance, PR
+[#48](https://github.com/input-output-hk/cardano-parts/pull/48) is followed by
+the unfinished [PR #49](https://github.com/input-output-hk/cardano-parts/pull/49).
+
+We'll focus on updating based on the latest merged PR (#48).
+
+### Step 4: Update `cardano-parts` Version
+
+To update `cardano-parts` to the latest version, run:
+
+```bash
+nix flake update cardano-parts
+```
+
+This updates to the latest version from the `main` branch. If you want to
+point to a specific branch or revision, manually update the `flake.nix` file.
+After updating, you can use the following commands to verify changes:
+
+- Run `menu` to confirm that the `cardano-node` version has changed.
+- Run `just` to list useful commands.
+
+### Step 5: Apply Changes from the PR
+
+Review the PR details for any changes or recommendations. For example, PR
+[#48](https://github.com/input-output-hk/cardano-parts/pull/48) modifies the
+following files:
+
+```
+Justfile                                                                # Adds IPv6 recipe support
+flake/colmena.nix                                                       # Adds staticIpv6 declaration
+flake/opentofu/cluster.nix                                              # Adds IPv6 Terraform support
+flake/opentofu/grafana/alerts/cardano-node-divergence.nix-import        # Updates alerts for new tracing metrics
+flake/opentofu/grafana/alerts/cardano-node-forge.nix-import             # Updates alerts for new tracing metrics
+flake/opentofu/grafana/alerts/cardano-node-quality.nix-import           # Updates alerts for new tracing metrics
+flake/opentofu/grafana/alerts/cardano-node.nix-import                   # Updates alerts for new tracing metrics
+flake/opentofu/grafana/dashboards/cardano-node-new-tracing.json         # Updates dashboard for new tracing metrics
+flake/opentofu/grafana/dashboards/cardano-node-p2p-new-tracing.json     # Updates dashboard for new tracing metrics
+flake/opentofu/grafana/dashboards/cardano-performance-new-tracing.json  # Updates dashboard for new tracing metrics
+```
+
+Focus on inspecting changes to `flake/colmena.nix` and `flake/cluster.nix`, as
+these are important. Use the following commands to review and apply changes:
+
+- To diff a file, use:
+
+  ```bash
+  just template-diff "$FILE"
+  ```
+
+- To apply changes if the diff looks correct, use:
+
+  ```bash
+  just template-patch "$FILE"
+  ```
+
+For other files, you can clone them directly by running:
+
+```bash
+just template-clone "$FILE"
+```
+
+**Note**: Some files listed in the PR may not exist in your deployment. These
+can typically be ignored unless explicitly mentioned in the PR description.
+
+### Step 6: Apply the Changes
+
+After updating the necessary files, apply the changes with:
+
+```bash
+just apply
+```
+
+For specific machines, use something similar to:
+
+```bash
+just apply "'mainnet*'"
+```
+
+_Important_: If changes were made to `opentofu` or `grafana` files, you also
+need to run:
+
+```bash
+just tf grafana apply
+```
+
+_Important_: If changes were made to cluster resources changes, such as aws
+ec2, route53, etc:
+
+```bash
+just tf apply # or just tf cluster apply
+```
+
+### Final Step: Create a PR
+
+After successfully applying the changes, open a PR with the updated files.
+**Remember:** If you're working from the `dev-deployer` machine, do not commit
+the `ips-DONT-COMMIT` file.
+```
