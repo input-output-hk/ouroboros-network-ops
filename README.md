@@ -319,3 +319,136 @@ After successfully applying the changes, open a PR with the updated files.
 **Remember:** If you're working from the `dev-deployer` machine, do not commit
 the `ips-DONT-COMMIT` file.
 ```
+
+## Customize deployment
+
+Nix is a wonderful declarative configuration language, but it can be tricky to
+understand where things come from due to it being untyped, all the implicit
+arguments and abstraction layers. This section explains how one can update the
+deployment to run a custom `cardano-node` version or a custom `cardano-node`
+configuration.
+
+### Custom `cardano-node` Version
+
+The configuration entry point is the `./flake.nix` file, which defines inputs
+and outputs for the deployment. Currently, the file includes local pins for
+customizations, as shown below:
+
+```nix
+  inputs = {
+    nixpkgs.follows = "cardano-parts/nixpkgs";
+    nixpkgs-unstable.follows = "cardano-parts/nixpkgs-unstable";
+    flake-parts.follows = "cardano-parts/flake-parts";
+    cardano-parts.url = "github:input-output-hk/cardano-parts";
+
+    # Local pins for additional customization:
+    cardano-node-8-12-2.url = "github:IntersectMBO/cardano-node/8.12.2";
+    iohk-nix-8-12-2.url = "github:input-output-hk/iohk-nix/577f4d5072945a88dda6f5cfe205e6b4829a0423";
+  };
+```
+
+To add a custom node version, simply include a new input pointing to the
+desired branch or revision. If you're using an older `cardano-node` version,
+you might also need to pin an appropriate version of `iohk-nix`.
+
+### Step 1: Modify `flake.nix`
+
+Add your custom inputs in the `flake.nix` file. For example, to add a custom
+`cardano-node` version:
+
+```nix
+  cardano-node-<version>.url = "github:<your-organization>/cardano-node/<version>";
+```
+
+If needed, also add the corresponding `iohk-nix` pin for compatibility with
+older versions.
+
+### Step 2: Update `colmena.nix`
+
+Next, update the `./flake/colmena.nix` file, which contains the configuration
+for each individual machine. Create a new variable for your custom node
+version, for example:
+
+```nix
+node8-12-2 = {
+  imports = [
+    config.flake.cardano-parts.cluster.groups.default.meta.cardano-node-service
+    inputs.cardano-parts.nixosModules.profile-cardano-node-group
+    inputs.cardano-parts.nixosModules.profile-cardano-custom-metrics
+    {
+      cardano-parts.perNode = {
+        lib.cardanoLib = config.flake.cardano-parts.pkgs.special.cardanoLibCustom inputs.iohk-nix-8-12-2 "x86_64-linux";
+        pkgs = {
+          inherit
+            (inputs.cardano-node-8-12-2.packages.x86_64-linux)
+            cardano-cli
+            cardano-node
+            cardano-submit-api
+            ;
+        };
+      };
+    }
+  ];
+};
+```
+
+This is based on the default `node` configuration, with custom inputs for the
+specified node version.
+
+### Step 3: Create Custom Configurations (Optional)
+
+If you don’t need to include previous `cardano-node` versions, you can
+simplify the configuration by omitting unused packages. For example:
+
+```nix
+node-tx-submission = {
+  imports = [
+    # Base cardano-node service
+    config.flake.cardano-parts.cluster.groups.default.meta.cardano-node-service
+
+    # Config for cardano-node group deployments
+    inputs.cardano-parts.nixosModules.profile-cardano-node-group
+    inputs.cardano-parts.nixosModules.profile-cardano-custom-metrics
+    {
+      cardano-parts.perNode = {
+        pkgs = {
+          inherit
+            (inputs.cardano-node-tx-submission.packages.x86_64-linux)
+            cardano-node
+            ;
+        };
+      };
+    }
+  ];
+};
+
+You'll require to update `./flake.nix` file to include such an input.
+```
+
+### Step 4: Update Machine Configurations
+
+Once the custom node variable is instantiated, update the machine
+configurations. At the end of the `./flake/colmena.nix` file, you'll see
+entries similar to:
+
+```nix
+mainnet1-rel-au-1 = {imports = [au m6i-xlarge (ebs 300) (group "mainnet1") node rel topoAu];};
+mainnet1-rel-br-1 = {imports = [br m6i-xlarge (ebs 300) (group "mainnet1") node rel topoBr];};
+mainnet1-rel-eu3-1 = {imports = [eu3 m6i-xlarge (ebs 300) (group "mainnet1") node-tx-submission rel topoEu3];};
+mainnet1-rel-jp-1 = {imports = [jp m6i-xlarge (ebs 300) (group "mainnet1") node rel topoJp];};
+mainnet1-rel-sa-1 = {imports = [sa m6i-xlarge (ebs 300) (group "mainnet1") node rel topoSa];};
+mainnet1-rel-sg-1 = {imports = [sg m6i-xlarge (ebs 300) (group "mainnet1") node rel topoSg];};
+mainnet1-rel-us1-1 = {imports = [us1 m6i-xlarge (ebs 300) (group "mainnet1") node-tx-submission rel topoUs1];};
+mainnet1-rel-us2-1 = {imports = [us2 m6i-xlarge (ebs 300) (group "mainnet1") node-tx-submission rel topoUs2];};
+```
+
+Here, I've replaced `node` with `node-tx-submission` for the machines where
+that configuration is required. You should make similar substitutions as
+needed for your deployment.
+
+### Step 5: Customize as Needed
+
+If you want to adjust any configuration parameters, this section of the file
+is where you should make changes. Update the machine definitions as necessary
+to meet your specific requirements.
+```
