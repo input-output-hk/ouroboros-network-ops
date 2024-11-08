@@ -79,20 +79,23 @@ in
         ];
       };
 
-      node8-12-2 = {
+      node-tx-submission = {
         imports = [
+          # Base cardano-node service
           config.flake.cardano-parts.cluster.groups.default.meta.cardano-node-service
+
+          # Config for cardano-node group deployments
           inputs.cardano-parts.nixosModules.profile-cardano-node-group
           inputs.cardano-parts.nixosModules.profile-cardano-custom-metrics
           {
             cardano-parts.perNode = {
-              lib.cardanoLib = config.flake.cardano-parts.pkgs.special.cardanoLibCustom inputs.iohk-nix-8-12-2 "x86_64-linux";
+              # lib.cardanoLib = config.flake.cardano-parts.pkgs.special.cardanoLibCustom inputs.iohk-nix-8-12-2 "x86_64-linux";
               pkgs = {
                 inherit
-                  (inputs.cardano-node-8-12-2.packages.x86_64-linux)
-                  cardano-cli
-                  cardano-node
-                  cardano-submit-api
+                  (inputs.cardano-node-tx-submission.packages.x86_64-linux)
+                  # cardano-cli
+                  # cardano-node
+                  # cardano-submit-api
                   ;
               };
             };
@@ -118,19 +121,20 @@ in
       };
 
       # Profiles
-      customRts = (nixos: let
-        cfg = nixos.config.services.cardano-node;
-			in {
-        services.cardano-node.rtsArgs = nixos.lib.mkForce [
-          # "-N${toString (cfg.totalCpuCount / cfg.instances)}"
-          "-N4"
-          "-A16m"
-          "-M${toString (cfg.totalMaxHeapSizeMiB / cfg.instances)}M"
-        ];
-      });
+      # customRts = (nixos: let
+      #   cfg = nixos.config.services.cardano-node;
+			# in {
+      #   services.cardano-node.rtsArgs = nixos.lib.mkForce [
+      #     # "-N${toString (cfg.totalCpuCount / cfg.instances)}"
+      #     "-N4"
+      #     "-A16m"
+      #     "-M${toString (cfg.totalMaxHeapSizeMiB / cfg.instances)}M"
+      #   ];
+      # });
 
       # Tracing
       tracers = {
+        services.cardano-node.extraNodeConfig.TraceTxInbound = true;
         services.cardano-node.extraNodeConfig.LocalTxMonitorProtocol = true;
         services.cardano-node.extraNodeConfig.options = {
           mapSeverity = {
@@ -239,17 +243,17 @@ in
         inputs.cardano-parts.nixosModules.profile-grafana-agent
         nixosModules.common
         nixosModules.ip-module-check
-        customRts
+        # customRts
         tracers
       ];
 
       mainnet1-rel-au-1 = {imports = [au m6i-xlarge (ebs 300) (group "mainnet1") node rel topoAu];};
       mainnet1-rel-br-1 = {imports = [br m6i-xlarge (ebs 300) (group "mainnet1") node rel topoBr];};
-      mainnet1-rel-eu3-1 = {imports = [eu3 m6i-xlarge (ebs 300) (group "mainnet1") node rel topoEu3];};
+      mainnet1-rel-eu3-1 = {imports = [eu3 m6i-xlarge (ebs 300) (group "mainnet1") node-tx-submission rel topoEu3];};
       mainnet1-rel-jp-1 = {imports = [jp m6i-xlarge (ebs 300) (group "mainnet1") node rel topoJp];};
       mainnet1-rel-sa-1 = {imports = [sa m6i-xlarge (ebs 300) (group "mainnet1") node rel topoSa];};
       mainnet1-rel-sg-1 = {imports = [sg m6i-xlarge (ebs 300) (group "mainnet1") node rel topoSg];};
-      mainnet1-rel-us1-1 = {imports = [us1 m6i-xlarge (ebs 300) (group "mainnet1") node rel topoUs1];};
-      mainnet1-rel-us2-1 = {imports = [us2 m6i-xlarge (ebs 300) (group "mainnet1") node rel topoUs2];};
+      mainnet1-rel-us1-1 = {imports = [us1 m6i-xlarge (ebs 300) (group "mainnet1") node-tx-submission rel topoUs1];};
+      mainnet1-rel-us2-1 = {imports = [us2 m6i-xlarge (ebs 300) (group "mainnet1") node-tx-submission rel topoUs2];};
     };
   }

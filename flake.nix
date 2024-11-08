@@ -8,7 +8,7 @@
     cardano-parts.url = "github:input-output-hk/cardano-parts";
 
     # Local pins for additional customization:
-    cardano-node-8-12-2.url = "github:IntersectMBO/cardano-node/8.12.2";
+    cardano-node-tx-submission.url = "github:IntersectMBO/cardano-node/bolt12/tx-submission";
     iohk-nix-8-12-2.url = "github:input-output-hk/iohk-nix/577f4d5072945a88dda6f5cfe205e6b4829a0423";
   };
 
