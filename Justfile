@@ -34,7 +34,7 @@ checkEnv := '''
 checkEnvWithoutOverride := '''
   ENV="${1:-}"
 
-  if ! [[ "$ENV" =~ mainnet$|preprod$|preview$|private$|sanchonet$|shelley-qa$|demo$ ]]; then
+  if ! [[ "$ENV" =~ ^mainnet$|^preprod$|^preview$|^private$|^sanchonet$|^shelley-qa$|^demo$ ]]; then
     echo "Error: only node environments for demo, mainnet, preprod, preview, private, sanchonet and shelley-qa are supported"
     exit 1
   fi
@@ -104,25 +104,29 @@ checkSshConfig := '''
     # each respective host.
     let sshCfg = (open .ssh_config
       | parse --regex '(?m)Host (.*)\n\s+HostName (.*)'
-      | rename machine ip)
+      | rename machine ip
+      | sort-by machine)
 
     let ssh4Cfg = ($sshCfg
       | where not ($it.machine | str ends-with ".ipv6")
-      | rename machine ipv4)
+      | rename machine pubIpv4
+      | sort-by machine)
 
     let ssh6Cfg = ($sshCfg
       | where ($it.machine | str ends-with ".ipv6")
-      | rename machine ipv6
+      | rename machine pubIpv6
       | update machine {$in | str replace '.ipv6' ''}
-      | update ipv6 {if ($in == "unavailable.ipv6") { null } else { $in }})
+      | update pubIpv6 {if ($in == "unavailable.ipv6") { null } else { $in }}
+      | sort-by machine)
 
     let moduleIps = if ('flake/nixosModules/ips-DONT-COMMIT.nix' | path exists) {
       (open flake/nixosModules/ips-DONT-COMMIT.nix
         | parse --regex '(?ms)(.*)^  };\nin {.*'
         | get capture0
         | parse --regex '(?m)    (.*) = {$\n\s+privateIpv4 = \"(.*)";\n\s+publicIpv4 = \"(.*)";\n\s+publicIpv6 = \"(.*)";\n\s+};'
-        | rename machine privateIpv4 ipv4 ipv6)
-        | update ipv6 {if ($in == "") { null } else { $in }}
+        | rename machine privIpv4 pubIpv4 pubIpv6
+        | update pubIpv6 {if ($in == "") { null } else { $in }}
+        | sort-by machine)
     } else {
       []
     }
@@ -142,14 +146,14 @@ checkSshConfig := '''
 
     # Set up comparison between list of ssh public ipv4 and ip module public ipv4 values
     let ssh4CompareIps4 = if ('flake/nixosModules/ips-DONT-COMMIT.nix' | path exists) {
-      list-diff ($ssh4Cfg | get ipv4) ($moduleIps | get ipv4) onlyInSshCfg onlyInIpsModuleCfg | where where != "="
+      list-diff ($ssh4Cfg | get pubIpv4) ($moduleIps | get pubIpv4) onlyInSshCfg onlyInIpsModuleCfg | where where != "="
     } else {
       []
     }
 
     # Set up comparison between list of ssh public ipv6 and ip module public ipv6 values
     let ssh6CompareIps6 = if ('flake/nixosModules/ips-DONT-COMMIT.nix' | path exists) {
-      list-diff ($ssh6Cfg | get ipv6) ($moduleIps | get ipv6) onlyInSshCfg onlyInIpsModuleCfg | where where != "="
+      list-diff ($ssh6Cfg | get pubIpv6) ($moduleIps | get pubIpv6) onlyInSshCfg onlyInIpsModuleCfg | where where != "="
     } else {
       []
     }
@@ -249,15 +253,30 @@ default:
 
 # Deploy select machines
 apply *ARGS:
-  colmena apply --verbose --on {{ARGS}}
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  CLICOLOR_FORCE=1 colmena apply --impure --verbose --color always --on {{ARGS}} \
+    1> >(sed --regex '/.*colmena-assets-.*/ d; /.*• Added input .*/ {N;d}' >&1) \
+    2> >(sed --regex '/.*colmena-assets-.*/ d; /• Added input .*/ {N;d}' >&2)
 
 # Deploy all machines
 apply-all *ARGS:
-  colmena apply --verbose {{ARGS}}
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  CLICOLOR_FORCE=1 colmena apply --impure --verbose --color always {{ARGS}} \
+    1> >(sed --regex '/.*colmena-assets-.*/ d; /.*• Added input .*/ {N;d}' >&1) \
+    2> >(sed --regex '/.*colmena-assets-.*/ d; /• Added input .*/ {N;d}' >&2)
 
 # Deploy select machines with the bootstrap key
 apply-bootstrap *ARGS:
-  SSH_CONFIG_FILE=<(sed '6i IdentityFile .ssh_key' .ssh_config) colmena apply --verbose --on {{ARGS}}
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  sed '2i \ \ IdentityFile .ssh_key' .ssh_config > .ssh_config_bootstrap
+  SSH_CONFIG_FILE=".ssh_config_bootstrap" just apply {{ARGS}}
+  rm .ssh_config_bootstrap
 
 # Build a nixos configuration
 build-machine MACHINE *ARGS:
@@ -352,7 +371,7 @@ dedelegate-pools ENV *IDXS=null:
   set -euo pipefail
   {{checkEnvWithoutOverride}}
 
-  if ! [[ "$ENV" =~ preprod$|preview$|private$|sanchonet$|shelley-qa$ ]]; then
+  if ! [[ "$ENV" =~ ^preprod$|^preview$|^private$|^sanchonet$|^shelley-qa$ ]]; then
     echo "Error: only node environments for preprod, preview, private, sanchonet and shelley-qa are supported"
     exit 1
   fi
@@ -374,9 +393,9 @@ dedelegate-pools ENV *IDXS=null:
     CARDANO_CLI="cardano-cli"
   elif [ "${UNSTABLE:-}" = "true" ]; then
     CARDANO_CLI="cardano-cli-ng"
-  elif [[ "$ENV" =~ preprod$|preview$|shelley-qa$ ]]; then
+  elif [[ "$ENV" =~ ^preprod$|^preview$|^shelley-qa$ ]]; then
     CARDANO_CLI="cardano-cli"
-  elif [[ "$ENV" =~ private$|sanchonet$ ]]; then
+  elif [[ "$ENV" =~ ^private$|^sanchonet$ ]]; then
     CARDANO_CLI="cardano-cli-ng"
   fi
 
@@ -392,11 +411,11 @@ dedelegate-pools ENV *IDXS=null:
       --wallet-mnemonic <(just sops-decrypt-binary secrets/envs/{{ENV}}/utxo-keys/faucet.mnemonic) \
       --delegation-index "$i"
 
-    TXID=$(eval "$CARDANO_CLI" transaction txid --tx-file tx-deleg-account-$i-restore.txsigned)
+    TXID=$(eval "$CARDANO_CLI" latest transaction txid --tx-file tx-deleg-account-$i-restore.txsigned)
     EXISTS="true"
 
     while [ "$EXISTS" = "true" ]; do
-      EXISTS=$(eval "$CARDANO_CLI" query tx-mempool tx-exists $TXID | jq -r .exists)
+      EXISTS=$(eval "$CARDANO_CLI" latest query tx-mempool tx-exists $TXID | jq -r .exists)
       if [ "$EXISTS" = "true" ]; then
         echo "Pool de-delegation index $i tx still exists in the mempool, sleeping 5s: $TXID"
       else
@@ -459,15 +478,18 @@ list-machines:
     let ssh4Table = ($sshNodes.stdout
       | from json
       | where ('HostName' in $it) and not ($it.Host | str ends-with ".ipv6")
+      | select Host HostName
       | rename Host pubIpv4
     );
 
     let ssh6Table = ($sshNodes.stdout
       | from json
       | where ('HostName' in $it) and ($it.Host | str ends-with ".ipv6")
+      | select Host HostName
       | rename Host pubIpv6
       | update Host {$in | str replace '.ipv6' ''}
       | update pubIpv6 {if ($in == "unavailable.ipv6") { null } else { $in }}
+      | select Host pubIpv6
     );
 
     let sshTable = ($ssh4Table
@@ -494,7 +516,7 @@ list-machines:
         if (
           (($row.inNixosCfg | str contains "Missing") or ($row.pubIpv4 | str contains "Missing"))
             and
-          ($row.ipv6 == null)
+          ($row.pubIpv6 == null)
         ) {$"(ansi bg_red)Missing(ansi reset)"} else {$in} }
       | where machine != ""
   )
@@ -562,13 +584,13 @@ query-tip ENV TESTNET_MAGIC=null:
     CARDANO_CLI="cardano-cli"
   elif [ "${UNSTABLE:-}" = "true" ]; then
     CARDANO_CLI="cardano-cli-ng"
-  elif [[ "$ENV" =~ mainnet$|preprod$|preview$|shelley-qa$ ]]; then
+  elif [[ "$ENV" =~ ^mainnet$|^preprod$|^preview$|^shelley-qa$ ]]; then
     CARDANO_CLI="cardano-cli"
-  elif [[ "$ENV" =~ private$|sanchonet$|demo$ ]]; then
+  elif [[ "$ENV" =~ ^private$|^sanchonet$|^demo$ ]]; then
     CARDANO_CLI="cardano-cli-ng"
   fi
 
-  eval "$CARDANO_CLI" query tip \
+  eval "$CARDANO_CLI" latest query tip \
     --socket-path "$STATEDIR/node-{{ENV}}.socket" \
     --testnet-magic "$MAGIC"
 
@@ -728,6 +750,15 @@ sops-decrypt-binary FILE:
   # This supports the common use case of obtaining decrypted state for cmd arg input while leaving the encrypted file intact on disk.
   sops --config "$(sops_config {{FILE}})" --input-type binary --output-type binary --decrypt {{FILE}}
 
+# Decrypt a file in place
+sops-decrypt-binary-in-place FILE:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  {{sopsConfigSetup}}
+  [ -n "${DEBUG:-}" ] && set -x
+
+  sops --config "$(sops_config {{FILE}})" --input-type binary --output-type binary --decrypt {{FILE}} | sponge {{FILE}}
+
 # Encrypt a file in place
 sops-encrypt-binary FILE:
   #!/usr/bin/env bash
@@ -771,6 +802,10 @@ ssh-config-example:
   echo "This may be used as a template if a custom .ssh_config file needs to be"
   echo "created and managed manually, for example, in a non-aws environment."
   echo
+  echo "Note that per host customization should come after the HostName line to preserve pattern parsing!"
+  echo
+  echo "---"
+  echo
   cat <<"EOF"
   Host *
     User root
@@ -781,6 +816,8 @@ ssh-config-example:
 
   Host machine-example-1
     HostName 1.2.3.4
+    # Per host customization should come after the HostName line to preserve pattern parsing
+    ProxyJump machine-example-2
 
   Host machine-example-1.ipv6
     HostName ff00::01
@@ -789,7 +826,7 @@ ssh-config-example:
     HostName 1.2.3.5
 
   Host machine-example-2.ipv6
-    HostName ff00::02
+    HostName unavailable.ipv6
   EOF
 
 # Ssh using cluster bootstrap key
@@ -807,7 +844,12 @@ ssh-for-all *ARGS:
 
 # Ssh for select
 ssh-for-each HOSTNAMES *ARGS:
-  colmena exec --verbose --parallel 0 --on {{HOSTNAMES}} {{ARGS}}
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  CLICOLOR_FORCE=1 colmena exec --impure --verbose --parallel 0 --on {{HOSTNAMES}} {{ARGS}} \
+    1> >(sed --regex '/.*colmena-assets-.*/ d; /.*• Added input .*/ {N;d}' >&1) \
+    2> >(sed --regex '/.*colmena-assets-.*/ d; /• Added input .*/ {N;d}' >&2)
 
 # List machine ips based on regex pattern
 ssh-list-ips PATTERN:
@@ -960,6 +1002,7 @@ start-demo:
   echo
 
   just query-tip demo
+  echo
   echo "Finished sequence..."
   echo
 
@@ -969,7 +1012,7 @@ start-node ENV:
   set -euo pipefail
   {{stateDir}}
 
-  if ! [[ "{{ENV}}" =~ mainnet$|preprod$|preview$|private$|sanchonet$|shelley-qa$ ]]; then
+  if ! [[ "{{ENV}}" =~ ^mainnet$|^preprod$|^preview$|^private$|^sanchonet$|^shelley-qa$ ]]; then
     echo "Error: only node environments for mainnet, preprod, preview, private, sanchonet and shelley-qa are supported for start-node recipe"
     exit 1
   fi
@@ -979,7 +1022,7 @@ start-node ENV:
   echo "Starting cardano-node for envrionment {{ENV}}"
   mkdir -p "$STATEDIR"
 
-  if [[ "{{ENV}}" =~ mainnet$|preprod$|preview$ ]]; then
+  if [[ "{{ENV}}" =~ ^mainnet$|^preprod$|^preview$ ]]; then
     UNSTABLE=false
     UNSTABLE_LIB=false
     UNSTABLE_MITHRIL=false
@@ -1146,7 +1189,7 @@ truncate-chain ENV SLOT:
   [ -n "${DEBUG:-}" ] && set -x
   {{stateDir}}
 
-  if ! [[ "{{ENV}}" =~ mainnet$|preprod$|preview$|private$|sanchonet$|shelley-qa$ ]]; then
+  if ! [[ "{{ENV}}" =~ ^mainnet$|^preprod$|^preview$|^private$|^sanchonet$|^shelley-qa$ ]]; then
     echo "Error: only node environments for mainnet, preprod, preview, private, sanchonet and shelley-qa are supported for truncate-chain recipe"
     exit 1
   fi
@@ -1172,7 +1215,7 @@ truncate-chain ENV SLOT:
   )
 
   nix run .#job-gen-env-config &> /dev/null
-  if [[ "{{ENV}}" =~ mainnet$|preprod$|preview$ ]]; then
+  if [[ "{{ENV}}" =~ ^mainnet$|^preprod$|^preview$ ]]; then
     cp result/environments/config/{{ENV}}/*  "$STATEDIR/config/{{ENV}}/"
     chmod -R +w "$STATEDIR/config/{{ENV}}/"
     db-truncater "${TRUNC_ARGS[@]}"
@@ -1296,6 +1339,10 @@ update-ips-example:
   echo "This may be used as a template if a custom flake/nixosModules/ips-DONT-COMMIT.nix file"
   echo "needs to be created and managed manually, for example, in a non-aws environment."
   echo
+  echo "Note that the line ordering of privateIpv4, publicIpv4, publicIpv6 matters!"
+  echo
+  echo "---"
+  echo
   cat <<"EOF"
   let
     all = {
@@ -1303,6 +1350,12 @@ update-ips-example:
         privateIpv4 = "172.16.0.1";
         publicIpv4 = "1.2.3.4";
         publicIpv6 = "ff00::01";
+      };
+
+      machine-example-2 = {
+        privateIpv4 = "172.16.0.2";
+        publicIpv4 = "1.2.3.5";
+        publicIpv6 = "";
       };
     };
   in {
@@ -1329,3 +1382,183 @@ update-ips-example:
     };
   }
   EOF
+
+# Generate and submit an SPO vote on a gov action
+vote-with-pool ENV POOL ACTION_ID ACTION_IDX VOTE:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  {{checkEnvWithoutOverride}}
+
+  if ! [[ "$ENV" =~ ^mainnet$|^preprod$|^preview$|^private$|^sanchonet$|^shelley-qa$|^demo$ ]]; then
+    echo "Error: only node environments for mainnet, preprod, preview, private, sanchonet, shelley-qa and demo are supported"
+    exit 1
+  fi
+
+  just set-default-cardano-env {{ENV}} "$MAGIC" "$PPID"
+
+  if [ "$(jq -re .syncProgress <<< "$(just query-tip {{ENV}})")" != "100.00" ]; then
+    echo "Please wait until the local tip of environment {{ENV}} is 100.00 before voting"
+    exit 1
+  fi
+
+  if ! [[ "{{VOTE}}" =~ ^yes$|^no$|^abstain$ ]]; then
+    echo "Error: VOTE arg must be one of \"yes\", \"no\" or \"abstain\""
+    exit 1
+  fi
+
+  if [ "${USE_SHELL_BINS:-}" = "true" ]; then
+    CARDANO_CLI="cardano-cli"
+  elif [ -n "${UNSTABLE:-}" ] && [ "${UNSTABLE:-}" != "true" ]; then
+    CARDANO_CLI="cardano-cli"
+  elif [ "${UNSTABLE:-}" = "true" ]; then
+    CARDANO_CLI="cardano-cli-ng"
+  elif [[ "$ENV" =~ ^mainnet$|^preprod$|^preview$|^shelley-qa$ ]]; then
+    CARDANO_CLI="cardano-cli"
+  elif [[ "$ENV" =~ ^private$|^sanchonet$ ]]; then
+    CARDANO_CLI="cardano-cli-ng"
+  fi
+
+  STATE_BEFORE=$(eval "$CARDANO_CLI" latest query gov-state)
+  ACTION_BEFORE=$(
+    jq -r \
+      --arg actionId {{ACTION_ID}} \
+      --arg actionIdx {{ACTION_IDX}} \
+      '.proposals | map(
+        select(
+          .actionId.txId == $actionId
+            and
+          .actionId.govActionIx == ($actionIdx | tonumber)
+        )
+      )' \
+      <<< "$STATE_BEFORE"
+  )
+
+  echo
+  echo "Governance action {{ACTION_ID}}#{{ACTION_IDX}} has the following associated gov state:"
+  echo
+  echo "$ACTION_BEFORE"
+  echo
+  read -p "Do you wish pool \"{{POOL}}\" in environment \"{{ENV}}\" to vote \"{{VOTE}}\" on this governance action [yY]? " -n 1 -r
+  echo
+  if ! [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "Aborting the vote."
+    exit 1
+  fi
+
+  FILE="{{POOL}}-{{ACTION_ID}}#{{ACTION_IDX}}"
+
+  # An assumption is made here that users have their secret cold as $POOL-cold.skey.
+  # The vkey may be listed in both the deploy and no-deploy poolgroup directories,
+  # so limit the output to the first match.
+  COLD_SKEY=$(fd --max-results 1 {{POOL}}-cold.skey secrets)
+  COLD_VKEY=$(fd --max-results 1 {{POOL}}-cold.vkey secrets)
+
+  # Assume secrets are properly encrypted
+  eval "$CARDANO_CLI" latest governance vote create \
+    --{{VOTE}} \
+    --governance-action-tx-id {{ACTION_ID}} \
+    --governance-action-index {{ACTION_IDX}} \
+    --cold-verification-key-file <(just sops-decrypt-binary "$COLD_VKEY") \
+    --out-file "$FILE.vote"
+
+  echo
+  echo "The created vote to be submitted is the following:"
+  echo
+  eval "$CARDANO_CLI" latest governance vote view \
+    --vote-file "$FILE.vote"
+  echo
+  echo
+  read -p "Do you wish to proceed with this vote [yY]? " -n 1 -r
+  echo
+  if ! [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "Aborting the vote."
+    exit 1
+  fi
+
+  RICH_ADDR=$(just sops-decrypt-binary secrets/envs/${ENV}/utxo-keys/rich-utxo.addr)
+
+  # Select the smallest available UTxO without native tokens attached and greater than 5 ADA automatically with jq:
+  RICH_UTXOS=$(eval "$CARDANO_CLI" latest query utxo --address "$RICH_ADDR" --out-file /dev/stdout)
+
+  TX_SELECTED=$(jq -r '.
+    | to_entries
+    | map(select((.value.value | length == 1) and .value.value.lovelace > 5000000))
+    | sort_by(.value.value.lovelace)[0]' <<< "$RICH_UTXOS"
+  )
+
+  TXIN=$(jq -r '.key' <<< "$TX_SELECTED")
+  TXVALUE=$(jq -r '.value.value.lovelace' <<< "$TX_SELECTED")
+
+  echo
+  echo "Selected rich key funding TX \"$TXIN\" with value $TXVALUE lovelace"
+
+  eval "$CARDANO_CLI" latest transaction build \
+    --tx-in "$TXIN" \
+    --change-address "$RICH_ADDR" \
+    --testnet-magic "$TESTNET_MAGIC" \
+    --vote-file "$FILE.vote" \
+    --witness-override 2 \
+    --out-file "$FILE.raw"
+
+  eval "$CARDANO_CLI" latest transaction sign \
+    --tx-body-file "$FILE.raw" \
+    --signing-key-file <(just sops-decrypt-binary secrets/envs/${ENV}/utxo-keys/rich-utxo.skey) \
+    --signing-key-file <(just sops-decrypt-binary "$COLD_SKEY") \
+    --testnet-magic "$TESTNET_MAGIC" \
+    --out-file "$FILE.signed"
+
+  TXID=$(eval "$CARDANO_CLI" latest transaction txid --tx-file "$FILE.signed")
+
+  echo
+  echo "The signed vote containing transaction with txid \"$TXID\" is the following:"
+  echo
+
+  eval "$CARDANO_CLI" debug transaction view --tx-file "$FILE.signed"
+
+  echo
+  echo
+  read -p "Do you wish to submit this vote to the {{ENV}} network [yY]? " -n 1 -r
+  echo
+  if ! [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "Aborting the vote."
+    exit 1
+  fi
+
+  echo
+  echo "Submitting the vote."
+
+  eval "$CARDANO_CLI" latest transaction submit --tx-file "$FILE.signed"
+
+  EXISTS="true"
+
+  while [ "$EXISTS" = "true" ]; do
+    EXISTS=$(eval "$CARDANO_CLI" latest query tx-mempool tx-exists $TXID | jq -r .exists)
+    if [ "$EXISTS" = "true" ]; then
+      echo "Vote transaction still exists in the mempool, sleeping 5s: $TXID"
+    else
+      echo "Vote transaction has been removed from the mempool."
+    fi
+    sleep 5
+  done
+  echo
+  echo
+
+  STATE_AFTER=$(eval "$CARDANO_CLI" latest query gov-state)
+  ACTION_AFTER=$(
+    jq -r \
+      --arg actionId {{ACTION_ID}} \
+      --arg actionIdx {{ACTION_IDX}} \
+      '.proposals | map(
+        select(
+          .actionId.txId == $actionId
+            and
+          .actionId.govActionIx == ($actionIdx | tonumber)
+        )
+      )' \
+      <<< "$STATE_AFTER"
+  )
+
+  echo "Differences in gov action state before and after submitting the vote transaction with txid \"$TXID\" are:"
+  echo
+
+  icdiff -L beforeTxSubmission -L afterTxSubmission <(echo "$ACTION_BEFORE") <(echo "$ACTION_AFTER")
