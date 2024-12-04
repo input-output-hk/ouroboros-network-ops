@@ -25,7 +25,7 @@ in
 
       # Instance defs:
       # t3a-small.aws.instance.instance_type = "t3a.small";
-      m6i-xlarge.aws.instance.instance_type = "m6i.xlarge";
+      m6i-2xlarge.aws.instance.instance_type = "m6i.2xlarge";
 
       # Helper fns:
       ebs = size: {aws.instance.root_block_device.volume_size = mkDefault size;};
@@ -37,6 +37,16 @@ in
       # Helper defs:
       # disableAlertCount.cardano-parts.perNode.meta.enableAlertCount = false;
       # delete.aws.instance.count = 0;
+
+      mkCustomNode = flakeInput:
+        node
+        // {
+          cardano-parts.perNode = {
+            pkgs = {inherit (inputs.${flakeInput}.packages.x86_64-linux) cardano-cli cardano-node cardano-submit-api;};
+          };
+        };
+
+      node-9-2-1 = mkCustomNode "cardano-node-9-2-1";
 
       # Cardano group assignments:
       group = name: {
@@ -78,6 +88,30 @@ in
           inputs.cardano-parts.nixosModules.profile-cardano-custom-metrics
         ];
       };
+
+      # node-9-2-1 = {
+      #   imports = [
+      #     # Base cardano-node service
+      #     config.flake.cardano-parts.cluster.groups.default.meta.cardano-node-service
+
+      #     # Config for cardano-node group deployments
+      #     inputs.cardano-parts.nixosModules.profile-cardano-node-group
+      #     inputs.cardano-parts.nixosModules.profile-cardano-custom-metrics
+      #     {
+      #       cardano-parts.perNode = {
+      #         lib.cardanoLib = config.flake.cardano-parts.pkgs.special.cardanoLibCustom inputs.iohk-nix-9-2-1 "x86_64-linux";
+      #         pkgs = {
+      #           inherit
+      #             (inputs.cardano-node-9-2-1.packages.x86_64-linux)
+      #             cardano-cli
+      #             cardano-node
+      #             cardano-submit-api
+      #             ;
+      #         };
+      #       };
+      #     }
+      #   ];
+      # };
 
       node-tx-submission = {
         imports = [
@@ -240,20 +274,20 @@ in
         inputs.cardano-parts.nixosModules.profile-cardano-parts
         inputs.cardano-parts.nixosModules.profile-basic
         inputs.cardano-parts.nixosModules.profile-common
-        inputs.cardano-parts.nixosModules.profile-grafana-agent
+        inputs.cardano-parts.nixosModules.profile-grafana-alloy
         nixosModules.common
         nixosModules.ip-module-check
         # customRts
         tracers
       ];
 
-      mainnet1-rel-au-1 = {imports = [au m6i-xlarge (ebs 300) (group "mainnet1") node rel topoAu];};
-      mainnet1-rel-br-1 = {imports = [br m6i-xlarge (ebs 300) (group "mainnet1") node rel topoBr];};
-      mainnet1-rel-eu3-1 = {imports = [eu3 m6i-xlarge (ebs 300) (group "mainnet1") node-tx-submission rel topoEu3];};
-      mainnet1-rel-jp-1 = {imports = [jp m6i-xlarge (ebs 300) (group "mainnet1") node rel topoJp];};
-      mainnet1-rel-sa-1 = {imports = [sa m6i-xlarge (ebs 300) (group "mainnet1") node rel topoSa];};
-      mainnet1-rel-sg-1 = {imports = [sg m6i-xlarge (ebs 300) (group "mainnet1") node rel topoSg];};
-      mainnet1-rel-us1-1 = {imports = [us1 m6i-xlarge (ebs 300) (group "mainnet1") node-tx-submission rel topoUs1];};
-      mainnet1-rel-us2-1 = {imports = [us2 m6i-xlarge (ebs 300) (group "mainnet1") node-tx-submission rel topoUs2];};
+      mainnet1-rel-au-1 = {imports = [au m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoAu];};
+      mainnet1-rel-br-1 = {imports = [br m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoBr];};
+      mainnet1-rel-eu3-1 = {imports = [eu3 m6i-2xlarge (ebs 300) (group "mainnet1") node-9-2-1 rel topoEu3];};
+      mainnet1-rel-jp-1 = {imports = [jp m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoJp];};
+      mainnet1-rel-sa-1 = {imports = [sa m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoSa];};
+      mainnet1-rel-sg-1 = {imports = [sg m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoSg];};
+      mainnet1-rel-us1-1 = {imports = [us1 m6i-2xlarge (ebs 300) (group "mainnet1") node-tx-submission rel topoUs1];};
+      mainnet1-rel-us2-1 = {imports = [us2 m6i-2xlarge (ebs 300) (group "mainnet1") node-tx-submission rel topoUs2];};
     };
   }
