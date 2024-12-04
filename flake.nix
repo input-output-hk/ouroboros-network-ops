@@ -9,7 +9,6 @@
 
     # Local pins for additional customization:
     cardano-node-tx-submission.url = "github:IntersectMBO/cardano-node/bolt12/tx-submission";
-    cardano-node-connection-manager.url = "github:IntersectMBO/cardano-node/coot/connection-manager-state-0.13.2.5";
     cardano-node-9-2-1.url = "github:IntersectMBO/cardano-node/9.2.1";
     iohk-nix-9-2-1.url = "github:input-output-hk/iohk-nix/master";
   };
