@@ -363,6 +363,11 @@ Add your custom inputs in the `flake.nix` file. For example, to add a custom
 If needed, also add the corresponding `iohk-nix` pin for compatibility with
 older versions.
 
+The `flake.lock` file needs to be updated if the `<version>` changes.  This can be done with:
+```
+nix flake update cardano-node-<version>
+```
+
 ### Step 2: Update `colmena.nix`
 
 Next, update the `./flake/colmena.nix` file, which contains the configuration
