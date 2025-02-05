@@ -12,6 +12,7 @@
     cardano-node-connection-manager.url = "github:IntersectMBO/cardano-node/coot/connection-manager-state-0.13.2.5";
     cardano-node-9-2-1.url = "github:IntersectMBO/cardano-node/9.2.1";
     iohk-nix-9-2-1.url = "github:input-output-hk/iohk-nix/master";
+    cardano-node-10-2-1-coot.url = "github:IntersectMBO/cardano-node/coot/ouroboros-network-0.19.0.2";
   };
 
   outputs = inputs: let
