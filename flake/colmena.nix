@@ -47,6 +47,7 @@ in
         };
 
       node-9-2-1 = mkCustomNode "cardano-node-9-2-1";
+      node-10-2-1-coot = mkCustomNode "cardano-node-10-2-1-coot";
 
       # Cardano group assignments:
       group = name: {
@@ -130,6 +131,14 @@ in
         services.cardano-node.extraNodeConfig.options = {
           mapSeverity = {
             "cardano.node.LocalTxMonitorProtocol" = "Debug";
+          };
+        };
+      };
+
+      peerSharingDisabled = {
+        services.cardano-node = {
+          extraNodeConfig = {
+            PeerSharing = false;
           };
         };
       };
@@ -243,7 +252,8 @@ in
       mainnet1-rel-eu3-1 = {imports = [eu3 m6i-2xlarge (ebs 300) (group "mainnet1") node-connection-manager rel topoEu3];};
       mainnet1-rel-jp-1 = {imports = [jp m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoJp];};
       mainnet1-rel-sa-1 = {imports = [sa m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoSa];};
-      mainnet1-rel-sg-1 = {imports = [sg m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoSg];};
+      # sg-1 runs `cardano-node-10.2.1` with disabled peer-sharing option
+      mainnet1-rel-sg-1 = {imports = [sg m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-1-coot rel topoSg peerSharingDisabled];};
       mainnet1-rel-us1-1 = {imports = [us1 m6i-2xlarge (ebs 300) (group "mainnet1") node-tx-submission rel topoUs1];};
       mainnet1-rel-us2-1 = {imports = [us2 m6i-2xlarge (ebs 300) (group "mainnet1") node-tx-submission rel topoUs2];};
     };
