@@ -2,6 +2,7 @@
   inputs,
   config,
   lib,
+  self,
   ...
 }: let
   inherit (config.flake) nixosModules nixosConfigurations;
@@ -281,6 +282,7 @@ in
 
       defaults.imports = [
         inputs.cardano-parts.nixosModules.module-aws-ec2
+        inputs.cardano-parts.nixosModules.profile-aws-ec2-ephemeral
         inputs.cardano-parts.nixosModules.profile-cardano-parts
         inputs.cardano-parts.nixosModules.profile-basic
         inputs.cardano-parts.nixosModules.profile-common
@@ -305,4 +307,6 @@ in
       #mainnet1-rel-us2-1 = {imports = [us2 m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-genesis rel topoUs2];};
       mainnet1-rel-us2-1 = {imports = [us2 m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-genesis relNoBperf topoEmpty configFlags genesisDebugTracers];};
     };
+
+    flake.colmenaHive = inputs.cardano-parts.inputs.colmena.lib.makeHive self.outputs.colmena;
   }

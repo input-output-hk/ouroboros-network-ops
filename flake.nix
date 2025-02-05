@@ -5,7 +5,7 @@
     nixpkgs.follows = "cardano-parts/nixpkgs";
     nixpkgs-unstable.follows = "cardano-parts/nixpkgs-unstable";
     flake-parts.follows = "cardano-parts/flake-parts";
-    cardano-parts.url = "github:input-output-hk/cardano-parts/v2024-11-18";
+    cardano-parts.url = "github:input-output-hk/cardano-parts/v2025-02-04";
 
     # Local pins for additional customization:
     cardano-node-tx-submission.url = "github:IntersectMBO/cardano-node/bolt12/tx-submission";
