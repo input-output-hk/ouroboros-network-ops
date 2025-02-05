@@ -91,7 +91,6 @@ in
       };
 
       node-tx-submission = mkCustomNode "cardano-node-tx-submission";
-      node-connection-manager = mkCustomNode "cardano-node-connection-manager";
 
 
 
@@ -249,7 +248,7 @@ in
 
       mainnet1-rel-au-1 = {imports = [au m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoAu];};
       mainnet1-rel-br-1 = {imports = [br m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoBr];};
-      mainnet1-rel-eu3-1 = {imports = [eu3 m6i-2xlarge (ebs 300) (group "mainnet1") node-connection-manager rel topoEu3];};
+      mainnet1-rel-eu3-1 = {imports = [eu3 m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoEu3];};
       mainnet1-rel-jp-1 = {imports = [jp m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoJp];};
       mainnet1-rel-sa-1 = {imports = [sa m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoSa];};
       # sg-1 runs `cardano-node-10.2.1` with disabled peer-sharing option
