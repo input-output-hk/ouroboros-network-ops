@@ -3,11 +3,11 @@
     "CHaP": {
       "flake": false,
       "locked": {
-        "lastModified": 1727170555,
-        "narHash": "sha256-kxB/xjSjqym5kKYDw/CZMb6O1OfCVWRjjsuqyWABd0w=",
+        "lastModified": 1738671556,
+        "narHash": "sha256-RoJdQz2PjJsla4zQVKiYvFCdVX8MiuQHCF2/CkZ/7nM=",
         "owner": "intersectmbo",
         "repo": "cardano-haskell-packages",
-        "rev": "d8beaf7e30330f8a70e626f63a5b47d1999fbf4b",
+        "rev": "c3ed80d7784059fbe3c4c2b8a6810a566dd3678e",
         "type": "github"
       },
       "original": {
@@ -20,11 +20,11 @@
     "CHaP_2": {
       "flake": false,
       "locked": {
-        "lastModified": 1732639071,
-        "narHash": "sha256-XY+LlzuumeRovfBMXIPS90Trk7HTxpUMFFdL4bmMZDU=",
+        "lastModified": 1727170555,
+        "narHash": "sha256-kxB/xjSjqym5kKYDw/CZMb6O1OfCVWRjjsuqyWABd0w=",
         "owner": "intersectmbo",
         "repo": "cardano-haskell-packages",
-        "rev": "6df7fca74cc3a34babfa7ce7cb4b7a8c72c70982",
+        "rev": "d8beaf7e30330f8a70e626f63a5b47d1999fbf4b",
         "type": "github"
       },
       "original": {
@@ -631,11 +631,11 @@
       "inputs": {
         "flake-utils": "flake-utils",
         "haskellNix": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "haskellNix"
         ],
         "nixpkgs": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "nixpkgs"
         ],
         "tullia": "tullia"
@@ -658,11 +658,11 @@
       "inputs": {
         "flake-utils": "flake-utils_5",
         "haskellNix": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "haskellNix"
         ],
         "nixpkgs": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "nixpkgs"
         ],
         "tullia": "tullia_2"
@@ -832,7 +832,7 @@
         "type": "github"
       }
     },
-    "cardano-node-9-2-1": {
+    "cardano-node-10-2-1-coot": {
       "inputs": {
         "CHaP": "CHaP",
         "cardano-automation": "cardano-automation",
@@ -844,18 +844,58 @@
         "hackageNix": "hackageNix",
         "haskellNix": "haskellNix",
         "hostNixpkgs": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "nixpkgs"
         ],
         "iohkNix": "iohkNix",
         "nixpkgs": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "haskellNix",
           "nixpkgs-unstable"
         ],
         "ops-lib": "ops-lib",
         "std": "std_2",
         "utils": "utils_2"
+      },
+      "locked": {
+        "lastModified": 1738753353,
+        "narHash": "sha256-OkugsSF7js9VFMyCgaurRGRzVA+XAZIro9XJ3O+/q18=",
+        "owner": "IntersectMBO",
+        "repo": "cardano-node",
+        "rev": "61c6d34f01f690eaaa925a471e6e0098b3b6d0d3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "IntersectMBO",
+        "ref": "coot/ouroboros-network-0.19.0.2",
+        "repo": "cardano-node",
+        "type": "github"
+      }
+    },
+    "cardano-node-9-2-1": {
+      "inputs": {
+        "CHaP": "CHaP_2",
+        "cardano-automation": "cardano-automation_2",
+        "cardano-mainnet-mirror": "cardano-mainnet-mirror_2",
+        "customConfig": "customConfig_2",
+        "em": "em_2",
+        "empty-flake": "empty-flake_2",
+        "flake-compat": "flake-compat_5",
+        "hackageNix": "hackageNix_2",
+        "haskellNix": "haskellNix_2",
+        "hostNixpkgs": [
+          "cardano-node-9-2-1",
+          "nixpkgs"
+        ],
+        "iohkNix": "iohkNix_2",
+        "nixpkgs": [
+          "cardano-node-9-2-1",
+          "haskellNix",
+          "nixpkgs-unstable"
+        ],
+        "ops-lib": "ops-lib_2",
+        "std": "std_4",
+        "utils": "utils_4"
       },
       "locked": {
         "lastModified": 1727221818,
@@ -868,46 +908,6 @@
       "original": {
         "owner": "IntersectMBO",
         "ref": "9.2.1",
-        "repo": "cardano-node",
-        "type": "github"
-      }
-    },
-    "cardano-node-connection-manager": {
-      "inputs": {
-        "CHaP": "CHaP_2",
-        "cardano-automation": "cardano-automation_2",
-        "cardano-mainnet-mirror": "cardano-mainnet-mirror_2",
-        "customConfig": "customConfig_2",
-        "em": "em_2",
-        "empty-flake": "empty-flake_2",
-        "flake-compat": "flake-compat_5",
-        "hackageNix": "hackageNix_2",
-        "haskellNix": "haskellNix_2",
-        "hostNixpkgs": [
-          "cardano-node-connection-manager",
-          "nixpkgs"
-        ],
-        "iohkNix": "iohkNix_2",
-        "nixpkgs": [
-          "cardano-node-connection-manager",
-          "haskellNix",
-          "nixpkgs-unstable"
-        ],
-        "ops-lib": "ops-lib_2",
-        "std": "std_4",
-        "utils": "utils_4"
-      },
-      "locked": {
-        "lastModified": 1733260130,
-        "narHash": "sha256-amSPikdy75FgvI8cjijy4hJA5+V85+OSHDEi+OwPx8g=",
-        "owner": "IntersectMBO",
-        "repo": "cardano-node",
-        "rev": "c5178d7c0c9e0252451e90704e20830e712d4c6c",
-        "type": "github"
-      },
-      "original": {
-        "owner": "IntersectMBO",
-        "ref": "coot/connection-manager-state-0.13.2.5",
         "repo": "cardano-node",
         "type": "github"
       }
@@ -1219,14 +1219,14 @@
     "devshell": {
       "inputs": {
         "flake-utils": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "cardano-automation",
           "tullia",
           "std",
           "flake-utils"
         ],
         "nixpkgs": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "cardano-automation",
           "tullia",
           "std",
@@ -1250,14 +1250,14 @@
     "devshell_2": {
       "inputs": {
         "flake-utils": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "cardano-automation",
           "tullia",
           "std",
           "flake-utils"
         ],
         "nixpkgs": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "cardano-automation",
           "tullia",
           "std",
@@ -1312,14 +1312,14 @@
     "dmerge": {
       "inputs": {
         "nixlib": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "cardano-automation",
           "tullia",
           "std",
           "nixpkgs"
         ],
         "yants": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "cardano-automation",
           "tullia",
           "std",
@@ -1343,17 +1343,17 @@
     "dmerge_2": {
       "inputs": {
         "haumea": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "std",
           "haumea"
         ],
         "nixlib": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "std",
           "lib"
         ],
         "yants": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "std",
           "yants"
         ]
@@ -1376,14 +1376,14 @@
     "dmerge_3": {
       "inputs": {
         "nixlib": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "cardano-automation",
           "tullia",
           "std",
           "nixpkgs"
         ],
         "yants": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "cardano-automation",
           "tullia",
           "std",
@@ -1407,17 +1407,17 @@
     "dmerge_4": {
       "inputs": {
         "haumea": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "std",
           "haumea"
         ],
         "nixlib": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "std",
           "lib"
         ],
         "yants": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "std",
           "yants"
         ]
@@ -2400,11 +2400,11 @@
     "hackageNix": {
       "flake": false,
       "locked": {
-        "lastModified": 1725928375,
-        "narHash": "sha256-XO/6kJ77bR99bAuRGr9PleQX75vde5CbSU+6Xf3e8NQ=",
+        "lastModified": 1736987292,
+        "narHash": "sha256-ZK4gWwsTWIP6j+SIHy7f2BLPcs8Q1yO8bP18thkIHLQ=",
         "owner": "input-output-hk",
         "repo": "hackage.nix",
-        "rev": "68cfb288b958e9d7a1329df614684132f44bd2b3",
+        "rev": "28b6ddfbfad7274f33ad99939e19afb29ee5adf6",
         "type": "github"
       },
       "original": {
@@ -2416,11 +2416,11 @@
     "hackageNix_2": {
       "flake": false,
       "locked": {
-        "lastModified": 1729039425,
-        "narHash": "sha256-sIglYcw8Dacj4n0bRlUWo+NLkDMcVi6vtmKvUyG+ZrQ=",
+        "lastModified": 1725928375,
+        "narHash": "sha256-XO/6kJ77bR99bAuRGr9PleQX75vde5CbSU+6Xf3e8NQ=",
         "owner": "input-output-hk",
         "repo": "hackage.nix",
-        "rev": "6dc43e5e01f113ce151056a8f94bce7bb2f13eb9",
+        "rev": "68cfb288b958e9d7a1329df614684132f44bd2b3",
         "type": "github"
       },
       "original": {
@@ -2505,7 +2505,7 @@
         "ghc910X": "ghc910X",
         "ghc911": "ghc911",
         "hackage": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "hackageNix"
         ],
         "hls-1.10": "hls-1.10",
@@ -2517,12 +2517,11 @@
         "hls-2.6": "hls-2.6",
         "hls-2.7": "hls-2.7",
         "hls-2.8": "hls-2.8",
-        "hls-2.9": "hls-2.9",
         "hpc-coveralls": "hpc-coveralls",
         "hydra": "hydra",
         "iserv-proxy": "iserv-proxy",
         "nixpkgs": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "nixpkgs"
         ],
         "nixpkgs-2003": "nixpkgs-2003",
@@ -2547,6 +2546,7 @@
       "original": {
         "owner": "input-output-hk",
         "repo": "haskell.nix",
+        "rev": "cb139fa956158397aa398186bb32dd26f7318784",
         "type": "github"
       }
     },
@@ -2562,7 +2562,7 @@
         "ghc910X": "ghc910X_2",
         "ghc911": "ghc911_2",
         "hackage": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "hackageNix"
         ],
         "hls-1.10": "hls-1.10_2",
@@ -2574,11 +2574,12 @@
         "hls-2.6": "hls-2.6_2",
         "hls-2.7": "hls-2.7_2",
         "hls-2.8": "hls-2.8_2",
+        "hls-2.9": "hls-2.9",
         "hpc-coveralls": "hpc-coveralls_2",
         "hydra": "hydra_2",
         "iserv-proxy": "iserv-proxy_2",
         "nixpkgs": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "nixpkgs"
         ],
         "nixpkgs-2003": "nixpkgs-2003_2",
@@ -2603,7 +2604,6 @@
       "original": {
         "owner": "input-output-hk",
         "repo": "haskell.nix",
-        "rev": "cb139fa956158397aa398186bb32dd26f7318784",
         "type": "github"
       }
     },
@@ -2667,7 +2667,7 @@
     "haumea": {
       "inputs": {
         "nixpkgs": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "std",
           "lib"
         ]
@@ -2690,7 +2690,7 @@
     "haumea_2": {
       "inputs": {
         "nixpkgs": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "std",
           "lib"
         ]
@@ -3328,7 +3328,7 @@
       "inputs": {
         "nix": "nix",
         "nixpkgs": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "haskellNix",
           "hydra",
           "nix",
@@ -3352,7 +3352,7 @@
       "inputs": {
         "nix": "nix_2",
         "nixpkgs": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "haskellNix",
           "hydra",
           "nix",
@@ -3423,7 +3423,7 @@
     "incl": {
       "inputs": {
         "nixlib": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "std",
           "lib"
         ]
@@ -3445,7 +3445,7 @@
     "incl_2": {
       "inputs": {
         "nixlib": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "std",
           "lib"
         ]
@@ -3591,18 +3591,18 @@
       "inputs": {
         "blst": "blst",
         "nixpkgs": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "nixpkgs"
         ],
         "secp256k1": "secp256k1",
         "sodium": "sodium"
       },
       "locked": {
-        "lastModified": 1721825987,
-        "narHash": "sha256-PPcma4tjozwXJAWf+YtHUQUulmxwulVlwSQzKItx/n8=",
+        "lastModified": 1734618971,
+        "narHash": "sha256-5StB/VhWHOj3zlBxshqVFa6cwAE0Mk/wxRo3eEfcy74=",
         "owner": "input-output-hk",
         "repo": "iohk-nix",
-        "rev": "eb61f2c14e1f610ec59117ad40f8690cddbf80cb",
+        "rev": "dc900a3448e805243b0ed196017e8eb631e32240",
         "type": "github"
       },
       "original": {
@@ -3615,18 +3615,18 @@
       "inputs": {
         "blst": "blst_2",
         "nixpkgs": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "nixpkgs"
         ],
         "secp256k1": "secp256k1_2",
         "sodium": "sodium_2"
       },
       "locked": {
-        "lastModified": 1728687575,
-        "narHash": "sha256-38uD8SqT557eh5yyRYuthKm1yTtiWzAN0FH7L/01QKM=",
+        "lastModified": 1721825987,
+        "narHash": "sha256-PPcma4tjozwXJAWf+YtHUQUulmxwulVlwSQzKItx/n8=",
         "owner": "input-output-hk",
         "repo": "iohk-nix",
-        "rev": "86c2bd46e8a08f62ea38ffe77cb4e9c337b42217",
+        "rev": "eb61f2c14e1f610ec59117ad40f8690cddbf80cb",
         "type": "github"
       },
       "original": {
@@ -3905,7 +3905,7 @@
       "inputs": {
         "flake-utils": "flake-utils_4",
         "nixpkgs": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "cardano-automation",
           "tullia",
           "std",
@@ -3930,7 +3930,7 @@
       "inputs": {
         "flake-utils": "flake-utils_8",
         "nixpkgs": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "cardano-automation",
           "tullia",
           "std",
@@ -4001,7 +4001,7 @@
       "inputs": {
         "flake-compat": "flake-compat",
         "flake-utils": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "cardano-automation",
           "tullia",
           "nix2container",
@@ -4009,13 +4009,13 @@
         ],
         "gomod2nix": "gomod2nix",
         "nixpkgs": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "cardano-automation",
           "tullia",
           "nixpkgs"
         ],
         "nixpkgs-lib": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "cardano-automation",
           "tullia",
           "nixpkgs"
@@ -4039,7 +4039,7 @@
       "inputs": {
         "flake-compat": "flake-compat_4",
         "flake-utils": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "cardano-automation",
           "tullia",
           "nix2container",
@@ -4047,13 +4047,13 @@
         ],
         "gomod2nix": "gomod2nix_2",
         "nixpkgs": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "cardano-automation",
           "tullia",
           "nixpkgs"
         ],
         "nixpkgs-lib": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "cardano-automation",
           "tullia",
           "nixpkgs"
@@ -4259,21 +4259,21 @@
     "nixago": {
       "inputs": {
         "flake-utils": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "cardano-automation",
           "tullia",
           "std",
           "flake-utils"
         ],
         "nixago-exts": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "cardano-automation",
           "tullia",
           "std",
           "blank"
         ],
         "nixpkgs": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "cardano-automation",
           "tullia",
           "std",
@@ -4297,21 +4297,21 @@
     "nixago_2": {
       "inputs": {
         "flake-utils": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "cardano-automation",
           "tullia",
           "std",
           "flake-utils"
         ],
         "nixago-exts": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "cardano-automation",
           "tullia",
           "std",
           "blank"
         ],
         "nixpkgs": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "cardano-automation",
           "tullia",
           "std",
@@ -5667,13 +5667,13 @@
       "inputs": {
         "call-flake": "call-flake",
         "nixpkgs": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "std",
           "nixpkgs"
         ],
         "nosys": "nosys",
         "yants": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "std",
           "yants"
         ]
@@ -5748,13 +5748,13 @@
       "inputs": {
         "call-flake": "call-flake_2",
         "nixpkgs": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "std",
           "nixpkgs"
         ],
         "nosys": "nosys_2",
         "yants": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "std",
           "yants"
         ]
@@ -5821,8 +5821,8 @@
     },
     "root": {
       "inputs": {
+        "cardano-node-10-2-1-coot": "cardano-node-10-2-1-coot",
         "cardano-node-9-2-1": "cardano-node-9-2-1",
-        "cardano-node-connection-manager": "cardano-node-connection-manager",
         "cardano-node-tx-submission": "cardano-node-tx-submission",
         "cardano-parts": "cardano-parts",
         "flake-parts": [
@@ -6149,7 +6149,7 @@
         "dmerge": "dmerge",
         "flake-utils": "flake-utils_3",
         "makes": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "cardano-automation",
           "tullia",
           "std",
@@ -6157,7 +6157,7 @@
         ],
         "mdbook-kroki-preprocessor": "mdbook-kroki-preprocessor",
         "microvm": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "cardano-automation",
           "tullia",
           "std",
@@ -6185,13 +6185,13 @@
     "std_2": {
       "inputs": {
         "arion": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "std",
           "blank"
         ],
         "blank": "blank_2",
         "devshell": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "std",
           "blank"
         ],
@@ -6200,22 +6200,22 @@
         "incl": "incl",
         "lib": "lib",
         "makes": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "std",
           "blank"
         ],
         "microvm": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "std",
           "blank"
         ],
         "n2c": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "std",
           "blank"
         ],
         "nixago": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "std",
           "blank"
         ],
@@ -6223,7 +6223,7 @@
         "paisano": "paisano",
         "paisano-tui": "paisano-tui",
         "terranix": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "std",
           "blank"
         ],
@@ -6250,7 +6250,7 @@
         "dmerge": "dmerge_3",
         "flake-utils": "flake-utils_7",
         "makes": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "cardano-automation",
           "tullia",
           "std",
@@ -6258,7 +6258,7 @@
         ],
         "mdbook-kroki-preprocessor": "mdbook-kroki-preprocessor_2",
         "microvm": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "cardano-automation",
           "tullia",
           "std",
@@ -6286,13 +6286,13 @@
     "std_4": {
       "inputs": {
         "arion": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "std",
           "blank"
         ],
         "blank": "blank_4",
         "devshell": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "std",
           "blank"
         ],
@@ -6301,22 +6301,22 @@
         "incl": "incl_2",
         "lib": "lib_2",
         "makes": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "std",
           "blank"
         ],
         "microvm": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "std",
           "blank"
         ],
         "n2c": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "std",
           "blank"
         ],
         "nixago": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "std",
           "blank"
         ],
@@ -6324,7 +6324,7 @@
         "paisano": "paisano_2",
         "paisano-tui": "paisano-tui_2",
         "terranix": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "std",
           "blank"
         ],
@@ -6586,7 +6586,7 @@
         "nix-nomad": "nix-nomad",
         "nix2container": "nix2container",
         "nixpkgs": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "cardano-automation",
           "nixpkgs"
         ],
@@ -6611,7 +6611,7 @@
         "nix-nomad": "nix-nomad_2",
         "nix2container": "nix2container_2",
         "nixpkgs": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "cardano-automation",
           "nixpkgs"
         ],
@@ -6758,7 +6758,7 @@
     "yants": {
       "inputs": {
         "nixpkgs": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "cardano-automation",
           "tullia",
           "std",
@@ -6782,7 +6782,7 @@
     "yants_2": {
       "inputs": {
         "nixpkgs": [
-          "cardano-node-9-2-1",
+          "cardano-node-10-2-1-coot",
           "std",
           "lib"
         ]
@@ -6804,7 +6804,7 @@
     "yants_3": {
       "inputs": {
         "nixpkgs": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "cardano-automation",
           "tullia",
           "std",
@@ -6828,7 +6828,7 @@
     "yants_4": {
       "inputs": {
         "nixpkgs": [
-          "cardano-node-connection-manager",
+          "cardano-node-9-2-1",
           "std",
           "lib"
         ]
