@@ -19,6 +19,7 @@
 
     # marcinw genesis testing
     cardano-node-10-2-genesis.url = "github:IntersectMBO/cardano-node/mwojtowicz/genesis-outbound-to-non-big-peers";
+    node-srv.url = "github:IntersectMBO/cardano-node/mwojtowicz/srv-test";
   };
 
   outputs = inputs: let
