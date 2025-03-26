@@ -29,6 +29,13 @@ While working on the next step, you can already start the devshell using:
 This will be done automatically if you are using [direnv](https://direnv.net/)
 and issue `direnv allow`.
 
+It might be handy to add `dev-deployer` as a remote, so you don't need to push
+branches via `GitHub`:
+```
+git remote add dev-deployer dev-deployer:./ouroboros-network-ops
+```
+For that to work you also need to add `dev-deployer` to your `~/.ssh/config`.
+
 ## AWS
 
 Create an AWS user with your name and `AdministratorAccess` policy in the
