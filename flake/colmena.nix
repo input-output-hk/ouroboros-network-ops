@@ -6,7 +6,7 @@
   ...
 }: let
   inherit (config.flake) nixosModules nixosConfigurations;
-  # inherit (config.flake.cardano-parts.cluster.infra.aws) domain regions;
+  inherit (config.flake.cardano-parts.cluster.infra.aws) domain;
 
   cfgGeneric = config.flake.cardano-parts.cluster.infra.generic;
 in
@@ -53,6 +53,7 @@ in
       node-10-2 = mkCustomNode "cardano-node-10-2";
       node-10-2-bolt = mkCustomNode "cardano-node-10-2-bolt";
       node-10-2-genesis = mkCustomNode "cardano-node-10-2-genesis";
+      node-srv = mkCustomNode "node-srv";
 
       # Cardano group assignments:
       group = name: {
@@ -158,9 +159,11 @@ in
             TraceInboundGovernor = false;
             TracePublicRootPeers = false;
             TraceServer = false;
+            TraceDns = true;
             options = {
               mapSeverity = {
                 "cardano.node.TraceChainDb" = "Debug";
+                "cardano.node.TraceDns" = "Debug";
               };
             };
           };
@@ -175,9 +178,10 @@ in
 
       # Flags
       configFlags = {
-        services.cardano-node.extraNodeConfig.ConsensusMode = "GenesisMode";
-        services.cardano-node.extraNodeConfig.SyncTargetNumberOfActivePeers = 15;
-        services.cardano-node.peerSnapshotFile = "/etc/cardano-node/peerSnapshotFile.json";
+        #services.cardano-node.extraNodeConfig.ConsensusMode = "GenesisMode";
+        #services.cardano-node.extraNodeConfig.SyncTargetNumberOfActivePeers = 15;
+        #services.cardano-node.peerSnapshotFile = "/etc/cardano-node/peerSnapshotFile.json";
+        #services.cardano-node.useLedgerAfterSlot = -1;
       };
 
       # pre = {imports = [inputs.cardano-parts.nixosModules.profile-pre-release];};
@@ -210,11 +214,20 @@ in
         ];
       };
 
+      # The cardano-node-topology module is already imported in the fn above,
+      # so no need to import it again if we are already using that fn.
+      mkExtraSrvProducers = list: {
+        services.cardano-node-topology.extraProducers = map (srv: {
+          address = srv;
+          }) list;
+      };
+
       # Custom declared localRoots topologies
       topoEmpty = mkExtraNodeListProducers [];
       topoAu = mkExtraNodeListProducers ["sg" "jp" "us1"];
       topoBr = mkExtraNodeListProducers ["sa" "us1" "us2"];
-      topoEu3 = mkExtraNodeListProducers ["sa" "sg" "us2"];
+      #topoEu3 = mkExtraNodeListProducers ["sa" "sg" "us2"];
+      topoEu3 = mkExtraNodeListProducers [] // (mkExtraSrvProducers ["_cardano._tcp.${domain}"]);
       topoJp = mkExtraNodeListProducers ["sg" "us1" "au"];
       topoSa = mkExtraNodeListProducers ["sg" "br" "eu3"];
       topoSg = mkExtraNodeListProducers ["sa" "eu3" "au" "jp"];
@@ -297,7 +310,7 @@ in
       mainnet1-rel-au-1 = {imports = [au m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-genesis relNoBperf topoEmpty genesisDebugTracers];};
       mainnet1-rel-br-1 = {imports = [br m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-bolt rel topoBr];};
       #mainnet1-rel-eu3-1 = {imports = [eu3 m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-genesis rel topoEu3 ];};
-      mainnet1-rel-eu3-1 = {imports = [eu3 m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-genesis relNoBperf topoEu3 configFlags genesisDebugTracers];};
+      mainnet1-rel-eu3-1 = {imports = [eu3 m6i-2xlarge (ebs 300) (group "mainnet1") node-srv relNoBperf topoEu3 configFlags genesisDebugTracers];};
       mainnet1-rel-jp-1 = {imports = [jp m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-bolt rel topoJp];};
       mainnet1-rel-sa-1 = {imports = [sa m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-bolt rel topoSa];};
       # sg-1 runs `cardano-node-10.2.1` with disabled peer-sharing option
