@@ -127,17 +127,6 @@ in
       #   ];
       # });
 
-      # Tracing
-      tracers = {
-        services.cardano-node.extraNodeConfig.TraceTxInbound = true;
-        services.cardano-node.extraNodeConfig.LocalTxMonitorProtocol = true;
-        services.cardano-node.extraNodeConfig.options = {
-          mapSeverity = {
-            "cardano.node.LocalTxMonitorProtocol" = "Debug";
-          };
-        };
-      };
-
       peerSharingDisabled = {
         services.cardano-node = {
           extraNodeConfig = {
@@ -303,7 +292,6 @@ in
         nixosModules.common
         nixosModules.ip-module-check
         # customRts
-        tracers
       ];
 
       #mainnet1-rel-au-1 = {imports = [au m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-genesis rel topoAu];};
