@@ -307,6 +307,16 @@ in
         nixosModules.common
         nixosModules.ip-module-check
         # customRts
+        # IT DOESN'T WORK (no output in the journal):
+        # { services.cardano-node.extraNodeConfig = {
+        #     setupScribes = [
+        #       { scFormat = "ScJson";
+        #         scKind = "JournalSK";
+        #         scName = "cardano";
+        #       }
+        #     ];
+        #   };
+        # }
       ];
 
       mainnet1-rel-au-1  = {imports = [ au  m6i-2xlarge (ebs 300) (group "mainnet1")
