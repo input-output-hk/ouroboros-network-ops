@@ -111,7 +111,7 @@ in
       # Profiles
       # customRts = (nixos: let
       #   cfg = nixos.config.services.cardano-node;
-			# in {
+      # in {
       #   services.cardano-node.rtsArgs = nixos.lib.mkForce [
       #     # "-N${toString (cfg.totalCpuCount / cfg.instances)}"
       #     "-N4"
@@ -218,9 +218,11 @@ in
       # The cardano-node-topology module is already imported in the fn above,
       # so no need to import it again if we are already using that fn.
       mkExtraSrvProducers = list: {
-        services.cardano-node-topology.extraProducers = map (srv: {
-          address = srv;
-          }) list;
+        services.cardano-node-topology.extraProducers =
+          map (srv: {
+            address = srv;
+          })
+          list;
       };
 
       # Custom declared localRoots topologies
@@ -318,30 +320,99 @@ in
         # }
       ];
 
-      mainnet1-rel-au-1  = {imports = [ au  m6i-2xlarge (ebs 300) (group "mainnet1")
-                                            node relNoBperf topoAu genesisDebugTracers
-                                      ];};
-      mainnet1-rel-br-1  = {imports = [ br  m6i-2xlarge (ebs 300) (group "mainnet1")
-                                            node rel topoBr
-                                      ];};
-      mainnet1-rel-eu3-1 = {imports = [ eu3 m6i-2xlarge (ebs 300) (group "mainnet1")
-                                            node-srv relNoBperf topoEu3 configFlags genesisDebugTracers
-                                      ];};
-      mainnet1-rel-jp-1  = {imports = [ jp  m6i-2xlarge (ebs 300) (group "mainnet1")
-                                            node rel topoJp
-                                      ];};
-      mainnet1-rel-sa-1  = {imports = [ sa  m6i-2xlarge (ebs 300) (group "mainnet1")
-                                            node rel topoSa
-                                      ];};
-      mainnet1-rel-sg-1  = {imports = [ sg  m6i-2xlarge (ebs 300) (group "mainnet1")
-                                            node rel topoSg peerSharingDisabled
-                                      ];};
-      mainnet1-rel-us1-1 = {imports = [ us1 m6i-2xlarge (ebs 300) (group "mainnet1")
-                                            node-tx-submission relNoBperf topoUs1 txSubmissionLogicV2Flags
-                                      ];};
-      mainnet1-rel-us2-1 = {imports = [ us2 m6i-2xlarge (ebs 300) (group "mainnet1")
-                                            node relNoBperf topoUs2
-                                      ];};
+      mainnet1-rel-au-1 = {
+        imports = [
+          au
+          m6i-2xlarge
+          (ebs 300)
+          (group "mainnet1")
+          node
+          relNoBperf
+          topoAu
+          genesisDebugTracers
+        ];
+      };
+      mainnet1-rel-br-1 = {
+        imports = [
+          br
+          m6i-2xlarge
+          (ebs 300)
+          (group "mainnet1")
+          node
+          rel
+          topoBr
+        ];
+      };
+      mainnet1-rel-eu3-1 = {
+        imports = [
+          eu3
+          m6i-2xlarge
+          (ebs 300)
+          (group "mainnet1")
+          node-srv
+          relNoBperf
+          topoEu3
+          configFlags
+          genesisDebugTracers
+        ];
+      };
+      mainnet1-rel-jp-1 = {
+        imports = [
+          jp
+          m6i-2xlarge
+          (ebs 300)
+          (group "mainnet1")
+          node
+          rel
+          topoJp
+        ];
+      };
+      mainnet1-rel-sa-1 = {
+        imports = [
+          sa
+          m6i-2xlarge
+          (ebs 300)
+          (group "mainnet1")
+          node
+          rel
+          topoSa
+        ];
+      };
+      mainnet1-rel-sg-1 = {
+        imports = [
+          sg
+          m6i-2xlarge
+          (ebs 300)
+          (group "mainnet1")
+          node
+          rel
+          topoSg
+          peerSharingDisabled
+        ];
+      };
+      mainnet1-rel-us1-1 = {
+        imports = [
+          us1
+          m6i-2xlarge
+          (ebs 300)
+          (group "mainnet1")
+          node-tx-submission
+          relNoBperf
+          topoUs1
+          txSubmissionLogicV2Flags
+        ];
+      };
+      mainnet1-rel-us2-1 = {
+        imports = [
+          us2
+          m6i-2xlarge
+          (ebs 300)
+          (group "mainnet1")
+          node
+          relNoBperf
+          topoUs2
+        ];
+      };
     };
 
     flake.colmenaHive = inputs.cardano-parts.inputs.colmena.lib.makeHive self.outputs.colmena;
