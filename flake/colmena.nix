@@ -226,7 +226,6 @@ in
       # Custom declared localRoots topologies
       # us1 runs the new tx-submission, that's why we connect all the nodes to
       # it.
-      topoEmpty = mkExtraNodeListProducers [];
       topoAu = mkExtraNodeListProducers ["us1" "sg" "jp"];
       topoBr = mkExtraNodeListProducers ["us1" "sa" "us1" "us2"];
       #topoEu3 = mkExtraNodeListProducers ["sa" "sg" "us2"];
@@ -320,7 +319,7 @@ in
       ];
 
       mainnet1-rel-au-1  = {imports = [ au  m6i-2xlarge (ebs 300) (group "mainnet1")
-                                            node relNoBperf topoEmpty genesisDebugTracers
+                                            node relNoBperf topoAu genesisDebugTracers
                                       ];};
       mainnet1-rel-br-1  = {imports = [ br  m6i-2xlarge (ebs 300) (group "mainnet1")
                                             node rel topoBr
