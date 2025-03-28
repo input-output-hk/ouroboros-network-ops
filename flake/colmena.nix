@@ -173,9 +173,6 @@ in
           TraceInboundGovernor = false;
           TracePeerSelection = false;
           TracePeerSelectionActions = false;
-          TraceInboundGovernorCounters = false;
-          TraceConnectionManagerCounters = false;
-          TracePeerSelectionCounters = false;
           options = {
             mapSeverity = {
               "cardano.node.TxInbound" = "Debug";
