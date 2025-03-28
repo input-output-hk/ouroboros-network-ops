@@ -260,6 +260,41 @@ in
           # Include blockPerf monitoring on all relay class nodes
           # Enables `TraceChainsSyncClient` & `TraceBlockFetchClient`.
           bperf
+          # Enalble json logging to journald via stdout (`JournalSK` is broken
+          # with `json` output); with bperf enabled, we need to recreate it's
+          # logging setup
+          {
+            services.cardano-node.extraNodeInstanceConfig = _: {
+              defaultScribes = [
+                [
+                  "StdoutSK"
+                  "stdout"
+                ]
+                [
+                  "FileSK"
+                  "/var/lib/cardano-node/blockperf/node.json"
+                ]
+              ];
+
+              setupScribes = [
+                {
+                  scFormat = "ScJson";
+                  scKind = "StdoutSK";
+                  scName = "stdout";
+                }
+                {
+                  scFormat = "ScJson";
+                  scKind = "FileSK";
+                  scName = "/var/lib/cardano-node/blockperf/node.json";
+                  scRotation = {
+                    rpKeepFilesNum = 10;
+                    rpLogLimitBytes = 5242880;
+                    rpMaxAgeHours = 24;
+                  };
+                }
+              ];
+            };
+          }
         ];
       };
 
@@ -267,6 +302,26 @@ in
         imports = [
           # Relay role (opens the node port)
           inputs.cardano-parts.nixosModules.role-relay
+          # Enalble json logging to journald via stdout (`JournalSK` is broken
+          # with `json` output).
+          {
+            services.cardano-node.extraNodeInstanceConfig = _: {
+              defaultScribes = [
+                [
+                  "StdoutSK"
+                  "stdout"
+                ]
+              ];
+
+              setupScribes = [
+                {
+                  scFormat = "ScJson";
+                  scKind = "StdoutSK";
+                  scName = "stdout";
+                }
+              ];
+            };
+          }
         ];
       };
     in {
@@ -308,16 +363,6 @@ in
         nixosModules.common
         nixosModules.ip-module-check
         # customRts
-        # IT DOESN'T WORK (no output in the journal):
-        # { services.cardano-node.extraNodeConfig = {
-        #     setupScribes = [
-        #       { scFormat = "ScJson";
-        #         scKind = "JournalSK";
-        #         scName = "cardano";
-        #       }
-        #     ];
-        #   };
-        # }
       ];
 
       mainnet1-rel-au-1 = {
