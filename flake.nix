@@ -5,21 +5,16 @@
     nixpkgs.follows = "cardano-parts/nixpkgs";
     nixpkgs-unstable.follows = "cardano-parts/nixpkgs-unstable";
     flake-parts.follows = "cardano-parts/flake-parts";
-    cardano-parts.url = "github:input-output-hk/cardano-parts/next-2025-02-27";
+
+    # Latest commits on branch next-2025-02-27 will introduce some tracing system issues,
+    # so pin it at an earlier commit on that branch for now.
+    cardano-parts.url = "github:input-output-hk/cardano-parts/8881275acb18dd4fcc6aaee9c5c7f834e526f562";
+    # currently `cardano-parts` gives us access to `cardano-node-10.2.1`
 
     # Local pins for additional customization:
-    cardano-node-tx-submission.url = "github:IntersectMBO/cardano-node/bolt12/tx-submission";
-    cardano-node-9-2-1.url = "github:IntersectMBO/cardano-node/9.2.1";
+    cardano-node-tx-submission.url = "github:IntersectMBO/cardano-node/coot/tx-submission-10.3";
+    cardano-node-srv.url = "github:IntersectMBO/cardano-node/mwojtowicz/srv-test";
     iohk-nix-9-2-1.url = "github:input-output-hk/iohk-nix/master";
-    cardano-node-10-2-1-coot.url = "github:IntersectMBO/cardano-node/coot/ouroboros-network-0.19.0.2";
-
-    cardano-node-10-2-reusable-diffusion.url = "github:IntersectMBO/cardano-node/bolt12/reusable-diffusion-3";
-    cardano-node-10-2.url = "github:IntersectMBO/cardano-node/nm/release-srp";
-    cardano-node-10-2-bolt.url = "github:IntersectMBO/cardano-node/bolt12/nm/release-srp";
-
-    # marcinw genesis testing
-    cardano-node-10-2-genesis.url = "github:IntersectMBO/cardano-node/mwojtowicz/genesis-outbound-to-non-big-peers";
-    node-srv.url = "github:IntersectMBO/cardano-node/mwojtowicz/srv-test";
   };
 
   outputs = inputs: let

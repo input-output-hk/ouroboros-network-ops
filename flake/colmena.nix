@@ -47,13 +47,8 @@ in
           };
         };
 
-      node-9-2-1 = mkCustomNode "cardano-node-9-2-1";
-      node-10-2-1-coot = mkCustomNode "cardano-node-10-2-1-coot";
-      node-10-2-reusable-diffusion = mkCustomNode "cardano-node-10-2-reusable-diffusion";
-      node-10-2 = mkCustomNode "cardano-node-10-2";
-      node-10-2-bolt = mkCustomNode "cardano-node-10-2-bolt";
-      node-10-2-genesis = mkCustomNode "cardano-node-10-2-genesis";
-      node-srv = mkCustomNode "node-srv";
+      node-tx-submission = mkCustomNode "cardano-node-tx-submission";
+      node-srv = mkCustomNode "cardano-node-srv";
 
       # Cardano group assignments:
       group = name: {
@@ -96,8 +91,6 @@ in
         ];
       };
 
-      node-tx-submission = mkCustomNode "cardano-node-tx-submission";
-
       # Blockperf for bootstrap nodes
       # Utilize the /etc/hosts list for bp ip lookups
       # bpDnsList = map (bpNode: "${bpNode}.public-ipv4") (filter (hasInfix "-bp-") (attrNames nixosConfigurations));
@@ -118,7 +111,7 @@ in
       # Profiles
       # customRts = (nixos: let
       #   cfg = nixos.config.services.cardano-node;
-			# in {
+      # in {
       #   services.cardano-node.rtsArgs = nixos.lib.mkForce [
       #     # "-N${toString (cfg.totalCpuCount / cfg.instances)}"
       #     "-N4"
@@ -126,17 +119,6 @@ in
       #     "-M${toString (cfg.totalMaxHeapSizeMiB / cfg.instances)}M"
       #   ];
       # });
-
-      # Tracing
-      tracers = {
-        services.cardano-node.extraNodeConfig.TraceTxInbound = true;
-        services.cardano-node.extraNodeConfig.LocalTxMonitorProtocol = true;
-        services.cardano-node.extraNodeConfig.options = {
-          mapSeverity = {
-            "cardano.node.LocalTxMonitorProtocol" = "Debug";
-          };
-        };
-      };
 
       peerSharingDisabled = {
         services.cardano-node = {
@@ -167,12 +149,6 @@ in
               };
             };
           };
-
-          # extraInstanceNodeConfig = _: {
-          #   TraceBlockFetchClient = false;
-          #   TraceAcceptPolicy = false;
-          #   TraceChainSyncClient = false;
-          # };
         };
       };
 
@@ -182,6 +158,31 @@ in
         #services.cardano-node.extraNodeConfig.SyncTargetNumberOfActivePeers = 15;
         #services.cardano-node.peerSnapshotFile = "/etc/cardano-node/peerSnapshotFile.json";
         #services.cardano-node.useLedgerAfterSlot = -1;
+      };
+
+      txSubmissionLogicV2Flags = {
+        services.cardano-node.extraNodeConfig = {
+          TxSubmissionLogicVersion = 2;
+          TraceTxInbound = true;
+          TraceTxLogic = true;
+
+          TraceHandshake = false;
+          TraceChainSyncClient = false;
+          TraceBlockFetchClient = false;
+          TraceConnectionManager = false;
+          TraceInboundGovernor = false;
+          TracePeerSelection = false;
+          TracePeerSelectionActions = false;
+          TraceInboundGovernorCounters = false;
+          TraceConnectionManagerCounters = false;
+          TracePeerSelectionCounters = false;
+          options = {
+            mapSeverity = {
+              "cardano.node.TxInbound" = "Debug";
+              "cardano.node.TxLogic" = "Debug";
+            };
+          };
+        };
       };
 
       # pre = {imports = [inputs.cardano-parts.nixosModules.profile-pre-release];};
@@ -217,22 +218,25 @@ in
       # The cardano-node-topology module is already imported in the fn above,
       # so no need to import it again if we are already using that fn.
       mkExtraSrvProducers = list: {
-        services.cardano-node-topology.extraProducers = map (srv: {
-          address = srv;
-          }) list;
+        services.cardano-node-topology.extraProducers =
+          map (srv: {
+            address = srv;
+          })
+          list;
       };
 
       # Custom declared localRoots topologies
-      topoEmpty = mkExtraNodeListProducers [];
-      topoAu = mkExtraNodeListProducers ["sg" "jp" "us1"];
-      topoBr = mkExtraNodeListProducers ["sa" "us1" "us2"];
+      # us1 runs the new tx-submission, that's why we connect all the nodes to
+      # it.
+      topoAu = mkExtraNodeListProducers ["us1" "sg" "jp"];
+      topoBr = mkExtraNodeListProducers ["us1" "sa" "us1" "us2"];
       #topoEu3 = mkExtraNodeListProducers ["sa" "sg" "us2"];
       topoEu3 = mkExtraNodeListProducers [] // (mkExtraSrvProducers ["_cardano._tcp.${domain}"]);
       topoJp = mkExtraNodeListProducers ["sg" "us1" "au"];
-      topoSa = mkExtraNodeListProducers ["sg" "br" "eu3"];
-      topoSg = mkExtraNodeListProducers ["sa" "eu3" "au" "jp"];
-      topoUs1 = mkExtraNodeListProducers ["us2" "br" "jp" "au"];
-      topoUs2 = mkExtraNodeListProducers ["eu3" "us1" "br"];
+      topoSa = mkExtraNodeListProducers ["sg" "br" "eu3" "us1"];
+      topoSg = mkExtraNodeListProducers ["us1" "sa" "eu3" "au" "jp"];
+      topoUs1 = mkExtraNodeListProducers ["us1" "us2" "br" "jp" "au"];
+      topoUs2 = mkExtraNodeListProducers ["us1" "eu3" "us1" "br"];
 
       # Roles
       # bp = {
@@ -254,6 +258,7 @@ in
           inputs.cardano-parts.nixosModules.role-relay
 
           # Include blockPerf monitoring on all relay class nodes
+          # Enables `TraceChainsSyncClient` & `TraceBlockFetchClient`.
           bperf
         ];
       };
@@ -303,22 +308,111 @@ in
         nixosModules.common
         nixosModules.ip-module-check
         # customRts
-        tracers
+        # IT DOESN'T WORK (no output in the journal):
+        # { services.cardano-node.extraNodeConfig = {
+        #     setupScribes = [
+        #       { scFormat = "ScJson";
+        #         scKind = "JournalSK";
+        #         scName = "cardano";
+        #       }
+        #     ];
+        #   };
+        # }
       ];
 
-      #mainnet1-rel-au-1 = {imports = [au m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-genesis rel topoAu];};
-      mainnet1-rel-au-1 = {imports = [au m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-genesis relNoBperf topoEmpty genesisDebugTracers];};
-      mainnet1-rel-br-1 = {imports = [br m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-bolt rel topoBr];};
-      #mainnet1-rel-eu3-1 = {imports = [eu3 m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-genesis rel topoEu3 ];};
-      mainnet1-rel-eu3-1 = {imports = [eu3 m6i-2xlarge (ebs 300) (group "mainnet1") node-srv relNoBperf topoEu3 configFlags genesisDebugTracers];};
-      mainnet1-rel-jp-1 = {imports = [jp m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-bolt rel topoJp];};
-      mainnet1-rel-sa-1 = {imports = [sa m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-bolt rel topoSa];};
-      # sg-1 runs `cardano-node-10.2.1` with disabled peer-sharing option
-      mainnet1-rel-sg-1 = {imports = [sg m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-1-coot rel topoSg peerSharingDisabled];};
-      #mainnet1-rel-sg-1 = {imports = [sg m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-1-coot rel topoSg];};
-      mainnet1-rel-us1-1 = {imports = [us1 m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-bolt rel topoUs1];};
-      #mainnet1-rel-us2-1 = {imports = [us2 m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-genesis rel topoUs2];};
-      mainnet1-rel-us2-1 = {imports = [us2 m6i-2xlarge (ebs 300) (group "mainnet1") node-10-2-genesis relNoBperf topoEmpty configFlags genesisDebugTracers];};
+      mainnet1-rel-au-1 = {
+        imports = [
+          au
+          m6i-2xlarge
+          (ebs 300)
+          (group "mainnet1")
+          node
+          relNoBperf
+          topoAu
+          genesisDebugTracers
+        ];
+      };
+      mainnet1-rel-br-1 = {
+        imports = [
+          br
+          m6i-2xlarge
+          (ebs 300)
+          (group "mainnet1")
+          node
+          rel
+          topoBr
+        ];
+      };
+      mainnet1-rel-eu3-1 = {
+        imports = [
+          eu3
+          m6i-2xlarge
+          (ebs 300)
+          (group "mainnet1")
+          node-srv
+          relNoBperf
+          topoEu3
+          configFlags
+          genesisDebugTracers
+        ];
+      };
+      mainnet1-rel-jp-1 = {
+        imports = [
+          jp
+          m6i-2xlarge
+          (ebs 300)
+          (group "mainnet1")
+          node
+          rel
+          topoJp
+        ];
+      };
+      mainnet1-rel-sa-1 = {
+        imports = [
+          sa
+          m6i-2xlarge
+          (ebs 300)
+          (group "mainnet1")
+          node
+          rel
+          topoSa
+        ];
+      };
+      mainnet1-rel-sg-1 = {
+        imports = [
+          sg
+          m6i-2xlarge
+          (ebs 300)
+          (group "mainnet1")
+          node
+          rel
+          topoSg
+          peerSharingDisabled
+        ];
+      };
+      mainnet1-rel-us1-1 = {
+        imports = [
+          us1
+          m6i-2xlarge
+          (ebs 300)
+          (group "mainnet1")
+          node-tx-submission
+          relNoBperf
+          topoUs1
+          txSubmissionLogicV2Flags
+        ];
+      };
+      mainnet1-rel-us2-1 = {
+        imports = [
+          us2
+          m6i-2xlarge
+          (ebs 300)
+          (group "mainnet1")
+          node
+          relNoBperf
+          topoUs2
+        ];
+      };
     };
 
     flake.colmenaHive = inputs.cardano-parts.inputs.colmena.lib.makeHive self.outputs.colmena;
