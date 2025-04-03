@@ -14,6 +14,7 @@
     # Local pins for additional customization:
     cardano-node-tx-submission.url = "github:IntersectMBO/cardano-node/coot/tx-submission-10.5";
     cardano-node-srv.url = "github:IntersectMBO/cardano-node/mwojtowicz/srv-test";
+    cardano-node-ig-turbo.url = "github:IntersectMBO/cardano-node/mwojtowicz/ig-turbo";
     iohk-nix-9-2-1.url = "github:input-output-hk/iohk-nix/master";
   };
 

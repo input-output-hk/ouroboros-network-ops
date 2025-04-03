@@ -49,6 +49,7 @@ in
 
       node-tx-submission = mkCustomNode "cardano-node-tx-submission";
       node-srv = mkCustomNode "cardano-node-srv";
+      node-ig-turbo = mkCustomNode "cardano-node-ig-turbo";
 
       # Cardano group assignments:
       group = name: {
@@ -227,8 +228,8 @@ in
       # it.
       topoAu = mkExtraNodeListProducers ["us1" "sg" "jp"];
       topoBr = mkExtraNodeListProducers ["us1" "sa" "us1" "us2"];
-      #topoEu3 = mkExtraNodeListProducers ["sa" "sg" "us2"];
-      topoEu3 = mkExtraNodeListProducers [] // (mkExtraSrvProducers ["_cardano._tcp.${domain}"]);
+      topoEu3 = mkExtraNodeListProducers ["sa" "sg" "us2"];
+      #topoEu3 = mkExtraNodeListProducers [] // (mkExtraSrvProducers ["_cardano._tcp.${domain}"]);
       topoJp = mkExtraNodeListProducers ["sg" "us1" "au"];
       topoSa = mkExtraNodeListProducers ["sg" "br" "eu3" "us1"];
       topoSg = mkExtraNodeListProducers ["us1" "sa" "eu3" "au" "jp"];
@@ -368,10 +369,9 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node
+          node-ig-turbo
           relNoBperf
           topoAu
-          genesisDebugTracers
         ];
       };
       mainnet1-rel-br-1 = {
@@ -380,7 +380,7 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node
+          node-ig-turbo
           rel
           topoBr
         ];
@@ -391,11 +391,9 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node-srv
+          node-ig-turbo
           relNoBperf
           topoEu3
-          configFlags
-          genesisDebugTracers
         ];
       };
       mainnet1-rel-jp-1 = {
@@ -404,7 +402,7 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node
+          node-ig-turbo
           rel
           topoJp
         ];
@@ -415,7 +413,7 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node
+          node-ig-turbo
           rel
           topoSa
         ];
@@ -426,7 +424,7 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node
+          node-ig-turbo
           rel
           topoSg
           peerSharingDisabled
@@ -450,7 +448,7 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node
+          node-ig-turbo
           relNoBperf
           topoUs2
         ];
