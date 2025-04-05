@@ -129,24 +129,35 @@ in
         };
       };
 
-      genesisDebugTracers = {
+      igTurboDebugTracing = {
         services.cardano-node = {
           extraNodeConfig = {
+            minSeverity = "Debug";
+            TracePeerSelectionCounters = false;
             TraceTxInbound = false;
+            TraceTxOutbound = false;
+            TraceTxSubmissionProtocol = false;
+            TraceChainDb = false;
+            TraceDnsResolver = false;
             LocalTxMonitorProtocol = false;
-            TraceBlockFetchClient = false;
             TraceAcceptPolicy = false;
-            TraceChainSyncClient = false;
-            TraceConnectionManager = false;
-            TraceHandshake = false;
-            TraceInboundGovernor = false;
+            TraceConnectionManager = true;
+            TraceHandshake = true;
+            TraceInboundGovernor = true;
+            TraceServer = true;
+            TraceDns = false;
+            TraceLedgerPeers = false;
+            TraceLocalRootPeers = false;
+            TracePeerSelection = false;
+            TracePeerSelectionActions = false;
             TracePublicRootPeers = false;
-            TraceServer = false;
-            TraceDns = true;
+            TraceBlockFetchClient = false;
+            TraceChainSyncClient = false;
+            TraceMux = false;
             options = {
               mapSeverity = {
-                "cardano.node.TraceChainDb" = "Debug";
-                "cardano.node.TraceDns" = "Debug";
+                "cardano.node.TraceInboundGovernor" = "Info";
+                "cardano.node.TraceConnectionManager" = "Info";
               };
             };
           };
@@ -372,6 +383,7 @@ in
           node-ig-turbo
           relNoBperf
           topoAu
+          igTurboDebugTracing
         ];
       };
       mainnet1-rel-br-1 = {
@@ -381,8 +393,9 @@ in
           (ebs 300)
           (group "mainnet1")
           node-ig-turbo
-          rel
+          relNoBperf
           topoBr
+          igTurboDebugTracing
         ];
       };
       mainnet1-rel-eu3-1 = {
@@ -394,6 +407,7 @@ in
           node-ig-turbo
           relNoBperf
           topoEu3
+          igTurboDebugTracing
         ];
       };
       mainnet1-rel-jp-1 = {
@@ -405,6 +419,7 @@ in
           node-ig-turbo
           rel
           topoJp
+          igTurboDebugTracing
         ];
       };
       mainnet1-rel-sa-1 = {
@@ -416,6 +431,7 @@ in
           node-ig-turbo
           rel
           topoSa
+          igTurboDebugTracing
         ];
       };
       mainnet1-rel-sg-1 = {
@@ -428,6 +444,7 @@ in
           rel
           topoSg
           peerSharingDisabled
+          igTurboDebugTracing
         ];
       };
       mainnet1-rel-us1-1 = {
@@ -451,6 +468,7 @@ in
           node-ig-turbo
           relNoBperf
           topoUs2
+          igTurboDebugTracing
         ];
       };
     };
