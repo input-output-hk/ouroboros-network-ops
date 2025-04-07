@@ -417,7 +417,7 @@ in
           (ebs 300)
           (group "mainnet1")
           node-ig-turbo
-          rel
+          relNoBperf
           topoJp
           igTurboDebugTracing
         ];
@@ -429,7 +429,7 @@ in
           (ebs 300)
           (group "mainnet1")
           node-ig-turbo
-          rel
+          relNoBperf
           topoSa
           igTurboDebugTracing
         ];
@@ -441,7 +441,7 @@ in
           (ebs 300)
           (group "mainnet1")
           node-ig-turbo
-          rel
+          relNoBperf
           topoSg
           peerSharingDisabled
           igTurboDebugTracing
