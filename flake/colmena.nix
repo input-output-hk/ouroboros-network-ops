@@ -50,6 +50,7 @@ in
       node-tx-submission = mkCustomNode "cardano-node-tx-submission";
       node-srv = mkCustomNode "cardano-node-srv";
       node-ig-turbo = mkCustomNode "cardano-node-ig-turbo";
+      node-readbuffer-ig-turbo = mkCustomNode "cardano-node-readbuffer-ig-turbo";
 
       # Cardano group assignments:
       group = name: {
@@ -416,7 +417,7 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node-ig-turbo
+          node-readbuffer-ig-turbo
           relNoBperf
           topoJp
           igTurboDebugTracing
