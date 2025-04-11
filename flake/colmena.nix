@@ -381,7 +381,7 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node-ig-turbo
+          node-readbuffer-ig-turbo
           relNoBperf
           topoAu
           igTurboDebugTracing
@@ -393,7 +393,7 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node-ig-turbo
+          node-readbuffer-ig-turbo
           relNoBperf
           topoBr
           igTurboDebugTracing
@@ -405,7 +405,7 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node-ig-turbo
+          node-readbuffer-ig-turbo
           relNoBperf
           topoEu3
           igTurboDebugTracing
@@ -429,7 +429,7 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node-ig-turbo
+          node-readbuffer-ig-turbo
           relNoBperf
           topoSa
           igTurboDebugTracing
@@ -441,7 +441,7 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node-ig-turbo
+          node-readbuffer-ig-turbo
           relNoBperf
           topoSg
           peerSharingDisabled
@@ -466,7 +466,7 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node-ig-turbo
+          node-readbuffer-ig-turbo
           relNoBperf
           topoUs2
           igTurboDebugTracing
