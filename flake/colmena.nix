@@ -406,7 +406,7 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node-10-3
+          node-readbuffer-ig-turbo
           relNoBperf
           topoEu3
           igTurboDebugTracing
