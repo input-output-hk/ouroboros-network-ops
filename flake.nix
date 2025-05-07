@@ -16,6 +16,7 @@
     cardano-node-srv.url = "github:IntersectMBO/cardano-node/mwojtowicz/srv-test";
     cardano-node-readbuffer-ig-turbo.url = "github:IntersectMBO/cardano-node/karknu/10_3_0_ig_readbuffer";
     cardano-node-10-3.url = "github:IntersectMBO/cardano-node/10.3.0";
+    cardano-node-10-3-readbuffer.url = "github:IntersectMBO/cardano-node/karknu/10_3_0_read_buffer";
     iohk-nix-9-2-1.url = "github:input-output-hk/iohk-nix/master";
   };
 
