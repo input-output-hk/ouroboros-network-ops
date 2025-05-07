@@ -51,6 +51,7 @@ in
       node-srv = mkCustomNode "cardano-node-srv";
       node-ig-turbo = mkCustomNode "cardano-node-ig-turbo";
       node-readbuffer-ig-turbo = mkCustomNode "cardano-node-readbuffer-ig-turbo";
+      node-readbuffer = mkCustomNode "cardano-node-10-3-readbuffer";
       node-10-3 = mkCustomNode "cardano-node-10-3";
 
       # Cardano group assignments:
@@ -149,9 +150,9 @@ in
             TraceServer = true;
             TraceDns = false;
             TraceLedgerPeers = false;
-            TraceLocalRootPeers = false;
-            TracePeerSelection = false;
-            TracePeerSelectionActions = false;
+            TraceLocalRootPeers = true;
+            TracePeerSelection = true;
+            TracePeerSelectionActions = true;
             TracePublicRootPeers = false;
             TraceBlockFetchClient = false;
             TraceChainSyncClient = false;
