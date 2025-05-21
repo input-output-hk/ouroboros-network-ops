@@ -6,7 +6,7 @@
   ...
 }: let
   inherit (config.flake) nixosModules nixosConfigurations;
-  inherit (config.flake.cardano-parts.cluster.infra.aws) domain;
+  # inherit (config.flake.cardano-parts.cluster.infra.aws) domain;
 
   cfgGeneric = config.flake.cardano-parts.cluster.infra.generic;
 in
@@ -48,11 +48,9 @@ in
         };
 
       node-tx-submission = mkCustomNode "cardano-node-tx-submission";
-      node-srv = mkCustomNode "cardano-node-srv";
-      node-ig-turbo = mkCustomNode "cardano-node-ig-turbo";
+      # node-ig-turbo = mkCustomNode "cardano-node-ig-turbo";
       node-readbuffer-ig-turbo = mkCustomNode "cardano-node-readbuffer-ig-turbo";
-      node-readbuffer = mkCustomNode "cardano-node-10-3-readbuffer";
-      node-10-3 = mkCustomNode "cardano-node-10-3";
+      # node-readbuffer = mkCustomNode "cardano-node-10-3-readbuffer";
 
       # Cardano group assignments:
       group = name: {
@@ -92,23 +90,6 @@ in
           # Config for cardano-node group deployments
           inputs.cardano-parts.nixosModules.profile-cardano-node-group
           inputs.cardano-parts.nixosModules.profile-cardano-custom-metrics
-        ];
-      };
-
-      # Blockperf for bootstrap nodes
-      # Utilize the /etc/hosts list for bp ip lookups
-      # bpDnsList = map (bpNode: "${bpNode}.public-ipv4") (filter (hasInfix "-bp-") (attrNames nixosConfigurations));
-
-      bperf = {
-        imports = [
-          inputs.cardano-parts.nixosModules.profile-blockperf
-          {
-            services.blockperf = {
-              name = "iog-network-team";
-              clientCert = "blockperf-iog-network-team-certificate.pem.enc";
-              clientKey = "blockperf-iog-network-team-private.key.enc";
-            };
-          }
         ];
       };
 
@@ -167,14 +148,6 @@ in
         };
       };
 
-      # Flags
-      configFlags = {
-        #services.cardano-node.extraNodeConfig.ConsensusMode = "GenesisMode";
-        #services.cardano-node.extraNodeConfig.SyncTargetNumberOfActivePeers = 15;
-        #services.cardano-node.peerSnapshotFile = "/etc/cardano-node/peerSnapshotFile.json";
-        #services.cardano-node.useLedgerAfterSlot = -1;
-      };
-
       txSubmissionLogicV2Flags = {
         services.cardano-node.extraNodeConfig = {
           TxSubmissionLogicVersion = 2;
@@ -229,13 +202,13 @@ in
 
       # The cardano-node-topology module is already imported in the fn above,
       # so no need to import it again if we are already using that fn.
-      mkExtraSrvProducers = list: {
-        services.cardano-node-topology.extraProducers =
-          map (srv: {
-            address = srv;
-          })
-          list;
-      };
+      # mkExtraSrvProducers = list: {
+      #   services.cardano-node-topology.extraProducers =
+      #     map (srv: {
+      #       address = srv;
+      #     })
+      #     list;
+      # };
 
       # Custom declared localRoots topologies
       # us1 runs the new tx-submission, that's why we connect all the nodes to
@@ -264,51 +237,69 @@ in
       # rel = {imports = [inputs.cardano-parts.nixosModules.role-relay topoRel];};
 
       # When customized per machine topology is needed:
-      rel = {
-        imports = [
-          # Relay role (opens the node port)
-          inputs.cardano-parts.nixosModules.role-relay
+      # TODO: we SHOULD enable `rel` on some of our nodes
+      # rel = {
+      #   imports = [
+      #     # Relay role (opens the node port)
+      #     inputs.cardano-parts.nixosModules.role-relay
+      #
+      #     # Include blockPerf monitoring on all relay class nodes
+      #     # Enables `TraceChainsSyncClient` & `TraceBlockFetchClient`.
+      #     bperf
+      #     # Enalble json logging to journald via stdout (`JournalSK` is broken
+      #     # with `json` output); with bperf enabled, we need to recreate it's
+      #     # logging setup
+      #     {
+      #       services.cardano-node.extraNodeInstanceConfig = _: {
+      #         defaultScribes = [
+      #           [
+      #             "StdoutSK"
+      #             "stdout"
+      #           ]
+      #           [
+      #             "FileSK"
+      #             "/var/lib/cardano-node/blockperf/node.json"
+      #           ]
+      #         ];
+      #
+      #         setupScribes = [
+      #           {
+      #             scFormat = "ScJson";
+      #             scKind = "StdoutSK";
+      #             scName = "stdout";
+      #           }
+      #           {
+      #             scFormat = "ScJson";
+      #             scKind = "FileSK";
+      #             scName = "/var/lib/cardano-node/blockperf/node.json";
+      #             scRotation = {
+      #               rpKeepFilesNum = 10;
+      #               rpLogLimitBytes = 5242880;
+      #               rpMaxAgeHours = 24;
+      #             };
+      #           }
+      #         ];
+      #       };
+      #     }
+      #   ];
+      # };
 
-          # Include blockPerf monitoring on all relay class nodes
-          # Enables `TraceChainsSyncClient` & `TraceBlockFetchClient`.
-          bperf
-          # Enalble json logging to journald via stdout (`JournalSK` is broken
-          # with `json` output); with bperf enabled, we need to recreate it's
-          # logging setup
-          {
-            services.cardano-node.extraNodeInstanceConfig = _: {
-              defaultScribes = [
-                [
-                  "StdoutSK"
-                  "stdout"
-                ]
-                [
-                  "FileSK"
-                  "/var/lib/cardano-node/blockperf/node.json"
-                ]
-              ];
+      # Blockperf for bootstrap nodes
+      # Utilize the /etc/hosts list for bp ip lookups
+      # bpDnsList = map (bpNode: "${bpNode}.public-ipv4") (filter (hasInfix "-bp-") (attrNames nixosConfigurations));
 
-              setupScribes = [
-                {
-                  scFormat = "ScJson";
-                  scKind = "StdoutSK";
-                  scName = "stdout";
-                }
-                {
-                  scFormat = "ScJson";
-                  scKind = "FileSK";
-                  scName = "/var/lib/cardano-node/blockperf/node.json";
-                  scRotation = {
-                    rpKeepFilesNum = 10;
-                    rpLogLimitBytes = 5242880;
-                    rpMaxAgeHours = 24;
-                  };
-                }
-              ];
-            };
-          }
-        ];
-      };
+      # bperf = {
+      #   imports = [
+      #     inputs.cardano-parts.nixosModules.profile-blockperf
+      #     {
+      #       services.blockperf = {
+      #         name = "iog-network-team";
+      #         clientCert = "blockperf-iog-network-team-certificate.pem.enc";
+      #         clientKey = "blockperf-iog-network-team-private.key.enc";
+      #       };
+      #     }
+      #   ];
+      # };
 
       relNoBperf = {
         imports = [
