@@ -1104,11 +1104,11 @@
         "utils": "utils_3"
       },
       "locked": {
-        "lastModified": 1747397491,
-        "narHash": "sha256-8refNQdkh3ReoC5F+pl0Pfg9ThKCgL9O/pmuk/Uzd14=",
+        "lastModified": 1747219141,
+        "narHash": "sha256-W7anPei0KwgTfkfXLEb05TBcQZyiugZ4Smek/A2u23A=",
         "owner": "IntersectMBO",
         "repo": "cardano-node",
-        "rev": "29933f6c54708ce92f356589d1aa4e59be9a7729",
+        "rev": "20a7ad9edcbd39f29b5279ec29ec2c63e5437bd9",
         "type": "github"
       },
       "original": {
