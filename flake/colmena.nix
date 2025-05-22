@@ -152,7 +152,8 @@ in
         services.cardano-node.extraNodeConfig = {
           TxSubmissionLogicVersion = 2;
           TraceTxInbound = true;
-          TraceTxLogic = true;
+          TraceTxSubmissionLogic = true;
+          TraceTxSubmissionCounters = true;
 
           TraceHandshake = false;
           TraceChainSyncClient = false;
