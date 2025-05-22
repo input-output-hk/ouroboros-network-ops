@@ -1212,11 +1212,11 @@
         "utils": "utils_6"
       },
       "locked": {
-        "lastModified": 1747815293,
-        "narHash": "sha256-2f4JlMFYka2bP/O+6w1SpZcZtbbvMLEYXALuOazaK+0=",
+        "lastModified": 1748266691,
+        "narHash": "sha256-SWJXVLvt+zMijjI2a0SB1RmoAqDv+tZ6nk+fFyz1ukk=",
         "owner": "IntersectMBO",
         "repo": "cardano-node",
-        "rev": "1d751662ca9b78383100774e4407201b8b1149c0",
+        "rev": "872c74d194f5f1a769ea7db4bd4021075fe6ff5f",
         "type": "github"
       },
       "original": {
