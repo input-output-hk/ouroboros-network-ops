@@ -152,7 +152,8 @@ in
         services.cardano-node.extraNodeConfig = {
           TxSubmissionLogicVersion = 2;
           TraceTxInbound = true;
-          TraceTxLogic = true;
+          TraceTxSubmissionLogic = true;
+          TraceTxSubmissionCounters = true;
 
           TraceHandshake = false;
           TraceChainSyncClient = false;
@@ -164,7 +165,7 @@ in
           options = {
             mapSeverity = {
               "cardano.node.TxInbound" = "Debug";
-              "cardano.node.TxLogic" = "Debug";
+              "cardano.node.TxSubmissionLogic" = "Debug";
             };
           };
         };
