@@ -117,7 +117,6 @@ in
         services.cardano-node = {
           extraNodeConfig = {
             minSeverity = "Debug";
-            TracePeerSelectionCounters = false;
             TraceTxInbound = false;
             TraceTxOutbound = false;
             TraceTxSubmissionProtocol = false;
@@ -134,6 +133,7 @@ in
             TraceLocalRootPeers = true;
             TracePeerSelection = true;
             TracePeerSelectionActions = true;
+            TracePeerSelectionCounters = true;
             TracePublicRootPeers = false;
             TraceBlockFetchClient = false;
             TraceChainSyncClient = false;
