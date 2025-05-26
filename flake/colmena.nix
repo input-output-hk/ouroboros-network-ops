@@ -154,6 +154,7 @@ in
           TraceTxInbound = true;
           TraceTxSubmissionLogic = true;
           TraceTxSubmissionCounters = true;
+          TraceMempool = true;
 
           TraceHandshake = false;
           TraceChainSyncClient = false;
