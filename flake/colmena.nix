@@ -6,7 +6,7 @@
   ...
 }: let
   inherit (config.flake) nixosModules nixosConfigurations;
-  inherit (config.flake.cardano-parts.cluster.infra.aws) domain;
+  # inherit (config.flake.cardano-parts.cluster.infra.aws) domain;
 
   cfgGeneric = config.flake.cardano-parts.cluster.infra.generic;
 in
@@ -48,7 +48,9 @@ in
         };
 
       node-tx-submission = mkCustomNode "cardano-node-tx-submission";
-      node-srv = mkCustomNode "cardano-node-srv";
+      # node-ig-turbo = mkCustomNode "cardano-node-ig-turbo";
+      node-readbuffer-ig-turbo = mkCustomNode "cardano-node-readbuffer-ig-turbo";
+      # node-readbuffer = mkCustomNode "cardano-node-10-3-readbuffer";
 
       # Cardano group assignments:
       group = name: {
@@ -91,23 +93,6 @@ in
         ];
       };
 
-      # Blockperf for bootstrap nodes
-      # Utilize the /etc/hosts list for bp ip lookups
-      # bpDnsList = map (bpNode: "${bpNode}.public-ipv4") (filter (hasInfix "-bp-") (attrNames nixosConfigurations));
-
-      bperf = {
-        imports = [
-          inputs.cardano-parts.nixosModules.profile-blockperf
-          {
-            services.blockperf = {
-              name = "iog-network-team";
-              clientCert = "blockperf-iog-network-team-certificate.pem.enc";
-              clientKey = "blockperf-iog-network-team-private.key.enc";
-            };
-          }
-        ];
-      };
-
       # Profiles
       # customRts = (nixos: let
       #   cfg = nixos.config.services.cardano-node;
@@ -128,43 +113,48 @@ in
         };
       };
 
-      genesisDebugTracers = {
+      igTurboDebugTracing = {
         services.cardano-node = {
           extraNodeConfig = {
+            minSeverity = "Debug";
             TraceTxInbound = false;
+            TraceTxOutbound = false;
+            TraceTxSubmissionProtocol = false;
+            TraceChainDb = false;
+            TraceDnsResolver = false;
             LocalTxMonitorProtocol = false;
-            TraceBlockFetchClient = false;
             TraceAcceptPolicy = false;
-            TraceChainSyncClient = false;
-            TraceConnectionManager = false;
-            TraceHandshake = false;
-            TraceInboundGovernor = false;
+            TraceConnectionManager = true;
+            TraceHandshake = true;
+            TraceInboundGovernor = true;
+            TraceServer = true;
+            TraceDns = false;
+            TraceLedgerPeers = false;
+            TraceLocalRootPeers = true;
+            TracePeerSelection = true;
+            TracePeerSelectionActions = true;
+            TracePeerSelectionCounters = true;
             TracePublicRootPeers = false;
-            TraceServer = false;
-            TraceDns = true;
+            TraceBlockFetchClient = false;
+            TraceChainSyncClient = false;
+            TraceMux = false;
             options = {
               mapSeverity = {
-                "cardano.node.TraceChainDb" = "Debug";
-                "cardano.node.TraceDns" = "Debug";
+                "cardano.node.TraceInboundGovernor" = "Info";
+                "cardano.node.TraceConnectionManager" = "Info";
               };
             };
           };
         };
       };
 
-      # Flags
-      configFlags = {
-        #services.cardano-node.extraNodeConfig.ConsensusMode = "GenesisMode";
-        #services.cardano-node.extraNodeConfig.SyncTargetNumberOfActivePeers = 15;
-        #services.cardano-node.peerSnapshotFile = "/etc/cardano-node/peerSnapshotFile.json";
-        #services.cardano-node.useLedgerAfterSlot = -1;
-      };
-
       txSubmissionLogicV2Flags = {
         services.cardano-node.extraNodeConfig = {
           TxSubmissionLogicVersion = 2;
           TraceTxInbound = true;
-          TraceTxLogic = true;
+          TraceTxSubmissionLogic = true;
+          TraceTxSubmissionCounters = true;
+          TraceMempool = true;
 
           TraceHandshake = false;
           TraceChainSyncClient = false;
@@ -176,7 +166,7 @@ in
           options = {
             mapSeverity = {
               "cardano.node.TxInbound" = "Debug";
-              "cardano.node.TxLogic" = "Debug";
+              "cardano.node.TxSubmissionLogic" = "Debug";
             };
           };
         };
@@ -214,21 +204,21 @@ in
 
       # The cardano-node-topology module is already imported in the fn above,
       # so no need to import it again if we are already using that fn.
-      mkExtraSrvProducers = list: {
-        services.cardano-node-topology.extraProducers =
-          map (srv: {
-            address = srv;
-          })
-          list;
-      };
+      # mkExtraSrvProducers = list: {
+      #   services.cardano-node-topology.extraProducers =
+      #     map (srv: {
+      #       address = srv;
+      #     })
+      #     list;
+      # };
 
       # Custom declared localRoots topologies
       # us1 runs the new tx-submission, that's why we connect all the nodes to
       # it.
       topoAu = mkExtraNodeListProducers ["us1" "sg" "jp"];
       topoBr = mkExtraNodeListProducers ["us1" "sa" "us1" "us2"];
-      #topoEu3 = mkExtraNodeListProducers ["sa" "sg" "us2"];
-      topoEu3 = mkExtraNodeListProducers [] // (mkExtraSrvProducers ["_cardano._tcp.${domain}"]);
+      topoEu3 = mkExtraNodeListProducers ["sa" "sg" "us2"];
+      #topoEu3 = mkExtraNodeListProducers [] // (mkExtraSrvProducers ["_cardano._tcp.${domain}"]);
       topoJp = mkExtraNodeListProducers ["sg" "us1" "au"];
       topoSa = mkExtraNodeListProducers ["sg" "br" "eu3" "us1"];
       topoSg = mkExtraNodeListProducers ["us1" "sa" "eu3" "au" "jp"];
@@ -249,51 +239,69 @@ in
       # rel = {imports = [inputs.cardano-parts.nixosModules.role-relay topoRel];};
 
       # When customized per machine topology is needed:
-      rel = {
-        imports = [
-          # Relay role (opens the node port)
-          inputs.cardano-parts.nixosModules.role-relay
+      # TODO: we SHOULD enable `rel` on some of our nodes
+      # rel = {
+      #   imports = [
+      #     # Relay role (opens the node port)
+      #     inputs.cardano-parts.nixosModules.role-relay
+      #
+      #     # Include blockPerf monitoring on all relay class nodes
+      #     # Enables `TraceChainsSyncClient` & `TraceBlockFetchClient`.
+      #     bperf
+      #     # Enalble json logging to journald via stdout (`JournalSK` is broken
+      #     # with `json` output); with bperf enabled, we need to recreate it's
+      #     # logging setup
+      #     {
+      #       services.cardano-node.extraNodeInstanceConfig = _: {
+      #         defaultScribes = [
+      #           [
+      #             "StdoutSK"
+      #             "stdout"
+      #           ]
+      #           [
+      #             "FileSK"
+      #             "/var/lib/cardano-node/blockperf/node.json"
+      #           ]
+      #         ];
+      #
+      #         setupScribes = [
+      #           {
+      #             scFormat = "ScJson";
+      #             scKind = "StdoutSK";
+      #             scName = "stdout";
+      #           }
+      #           {
+      #             scFormat = "ScJson";
+      #             scKind = "FileSK";
+      #             scName = "/var/lib/cardano-node/blockperf/node.json";
+      #             scRotation = {
+      #               rpKeepFilesNum = 10;
+      #               rpLogLimitBytes = 5242880;
+      #               rpMaxAgeHours = 24;
+      #             };
+      #           }
+      #         ];
+      #       };
+      #     }
+      #   ];
+      # };
 
-          # Include blockPerf monitoring on all relay class nodes
-          # Enables `TraceChainsSyncClient` & `TraceBlockFetchClient`.
-          bperf
-          # Enalble json logging to journald via stdout (`JournalSK` is broken
-          # with `json` output); with bperf enabled, we need to recreate it's
-          # logging setup
-          {
-            services.cardano-node.extraNodeInstanceConfig = _: {
-              defaultScribes = [
-                [
-                  "StdoutSK"
-                  "stdout"
-                ]
-                [
-                  "FileSK"
-                  "/var/lib/cardano-node/blockperf/node.json"
-                ]
-              ];
+      # Blockperf for bootstrap nodes
+      # Utilize the /etc/hosts list for bp ip lookups
+      # bpDnsList = map (bpNode: "${bpNode}.public-ipv4") (filter (hasInfix "-bp-") (attrNames nixosConfigurations));
 
-              setupScribes = [
-                {
-                  scFormat = "ScJson";
-                  scKind = "StdoutSK";
-                  scName = "stdout";
-                }
-                {
-                  scFormat = "ScJson";
-                  scKind = "FileSK";
-                  scName = "/var/lib/cardano-node/blockperf/node.json";
-                  scRotation = {
-                    rpKeepFilesNum = 10;
-                    rpLogLimitBytes = 5242880;
-                    rpMaxAgeHours = 24;
-                  };
-                }
-              ];
-            };
-          }
-        ];
-      };
+      # bperf = {
+      #   imports = [
+      #     inputs.cardano-parts.nixosModules.profile-blockperf
+      #     {
+      #       services.blockperf = {
+      #         name = "iog-network-team";
+      #         clientCert = "blockperf-iog-network-team-certificate.pem.enc";
+      #         clientKey = "blockperf-iog-network-team-private.key.enc";
+      #       };
+      #     }
+      #   ];
+      # };
 
       relNoBperf = {
         imports = [
@@ -368,10 +376,10 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node
+          node-readbuffer-ig-turbo
           relNoBperf
           topoAu
-          genesisDebugTracers
+          igTurboDebugTracing
         ];
       };
       mainnet1-rel-br-1 = {
@@ -380,9 +388,10 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node
-          rel
+          node-readbuffer-ig-turbo
+          relNoBperf
           topoBr
+          igTurboDebugTracing
         ];
       };
       mainnet1-rel-eu3-1 = {
@@ -391,11 +400,10 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node-srv
+          node-readbuffer-ig-turbo
           relNoBperf
           topoEu3
-          configFlags
-          genesisDebugTracers
+          igTurboDebugTracing
         ];
       };
       mainnet1-rel-jp-1 = {
@@ -404,9 +412,10 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node
-          rel
+          node-readbuffer-ig-turbo
+          relNoBperf
           topoJp
+          igTurboDebugTracing
         ];
       };
       mainnet1-rel-sa-1 = {
@@ -415,9 +424,10 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node
-          rel
+          node-readbuffer-ig-turbo
+          relNoBperf
           topoSa
+          igTurboDebugTracing
         ];
       };
       mainnet1-rel-sg-1 = {
@@ -426,10 +436,11 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node
-          rel
+          node-readbuffer-ig-turbo
+          relNoBperf
           topoSg
           peerSharingDisabled
+          igTurboDebugTracing
         ];
       };
       mainnet1-rel-us1-1 = {
@@ -450,9 +461,10 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node
+          node-readbuffer-ig-turbo
           relNoBperf
           topoUs2
+          igTurboDebugTracing
         ];
       };
     };
