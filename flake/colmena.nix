@@ -297,6 +297,7 @@ in
           {
             services.blockperf = {
               name = "iog-network-team";
+              amazonCa = "blockperf-amazon-ca.pem.enc";
               clientCert = "blockperf-iog-network-team-certificate.pem.enc";
               clientKey = "blockperf-iog-network-team-private.key.enc";
             };
