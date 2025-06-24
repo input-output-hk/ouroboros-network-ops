@@ -6,10 +6,9 @@
     nixpkgs-unstable.follows = "cardano-parts/nixpkgs-unstable";
     flake-parts.follows = "cardano-parts/flake-parts";
 
-    # Using the current head of next-2025-06-06 to get SSH over SSM migration completed.
-    # We can resume pinning to release versions after this next branch is merged shortly.
+    # Using cardano-parts release v2025-06-24, we get SSH over SSM migration completed.
     # Currently `cardano-parts` gives us access to cardano-node `10.4.1` and `10.5.0`.
-    cardano-parts.url = "github:input-output-hk/cardano-parts/next-2025-06-06";
+    cardano-parts.url = "github:input-output-hk/cardano-parts/v2025-06-24";
 
     # Local pins for additional customization:
     cardano-node-tx-submission.url = "github:IntersectMBO/cardano-node/coot/tx-submission-10.5";
