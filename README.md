@@ -40,15 +40,60 @@ git remote add dev-deployer dev-deployer:./ouroboros-network-ops
 ```
 For that to work you also need to add `dev-deployer` to your `~/.ssh/config`.
 
+
 ## AWS
 
-Create an AWS user with your name and `AdministratorAccess` policy in the
-$REPO organization, then store your access key in
-`~/.aws/credentials` under the profile name `$REPO`:
+From the parent AWS org, create an IAM identity center user with your name and
+`AdministratorAccess` to the AWS account of the `ouroboros-network-ops`
+deployment, then store the config in `~/.aws/config` under the profile name
+`ouroboros-network-ops`:
 
-    [$REPO]
+    [sso-session $PARENT_ORG_NAME]
+    sso_start_url = https://$IAM_CENTER_URL_ID.awsapps.com/start
+    sso_region = $REGION
+    sso_registration_scopes = sso:account:access
+
+    [profile ouroboros-network-ops]
+    sso_session = $PARENT_ORG_NAME
+    sso_account_id = $REPO_ARN_ORG_ID
+    sso_role_name = AdministratorAccess
+    region = $REGION
+
+The `$PARENT_ORG_NAME` can be set to what you prefer, ex: `ioe`.  The
+`$IAM_CENTER_URL_ID` and `$REGION` will be provided when creating your IAM
+identity center user and the `$REPO_ARN_ORG_ID` will be obtained in AWS as
+the `ouroboros-network-ops` aka `network-team` org ARN account number.
+
+If your AWS setup uses a flat or single org structure, then adjust IAM identity
+center account access and the above config to reflect this.  The above config
+can also be generated from the devshell using:
+
+    aws configure sso
+
+When adding additional profiles the `aws configure sso` command may create
+duplicate sso-session blocks or cause other issues, so manually adding new
+profiles is preferred.  Before accessing or using `ouroboros-network-ops` org resources, you
+will need to start an sso session which can be done by:
+
+    just aws-sso-login
+
+While the identity center approach above gives session based access, it also
+requires periodic manual session refreshes which are more difficult to
+accomplish on a headless system or shared deployer.  For those use cases, IAM
+of the `ouroboros-network-ops` organization can be used to create an AWS user with your name and
+`AdministratorAccess` policy.  With this approach, create an access key set for
+your IAM user and store them in `~/.aws/credentials` under the profile name
+`ouroboros-network-ops`:
+
+    [ouroboros-network-ops]
     aws_access_key_id = XXXXXXXXXXXXXXXXXXXX
     aws_secret_access_key = XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+No session initiation will be required and AWS resources in the org can be used
+immediately.
+
+In the case that a profile exists in both `~/.aws/config` and
+`~/.aws/credentials`, the `~/.aws/config` sso definition will take precedence.
 
 ## AGE Admin
 
@@ -58,7 +103,7 @@ key is still typically desired so that all per machine secrets can be decrypted
 by an admin or SRE.  A new age admin key can be generated with `age-keygen` and
 this should be placed in `~/.age/credentials`:
 
-    # $REPO: sre
+    # ouroboros-network-ops: sre
     AGE-SECRET-KEY-***********************************************************
 
 ## Cloudformation
@@ -123,6 +168,13 @@ With that you can then get started with:
 
     # Find many other operations recipes to use
     just --list
+
+Behind the scenes ssh is using AWS SSM and no open port 22 is required.  In
+fact, the default template for a cardano-parts repo does not open port 22 for
+ingress on security groups.
+
+For special use cases which still utilize port 22 ingress for ssh, ipv4 or ipv6
+ssh_config can be used by appending `.ipv4` or `.ipv6` to the target hostname.
 
 ## Colmena
 
