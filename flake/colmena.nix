@@ -153,19 +153,22 @@ in
         services.cardano-node.extraNodeConfig = {
           TxSubmissionLogicVersion = 2;
           TraceTxInbound = true;
+          TraceTxSubmissionProtocol = true;
           TraceTxSubmissionLogic = true;
           TraceTxSubmissionCounters = true;
           TraceMempool = true;
 
-          TraceHandshake = false;
+          TraceHandshake = true;
           TraceChainSyncClient = false;
           TraceBlockFetchClient = false;
-          TraceConnectionManager = false;
-          TraceInboundGovernor = false;
-          TracePeerSelection = false;
-          TracePeerSelectionActions = false;
+          TraceConnectionManager = true;
+          TraceInboundGovernor = true;
+          TracePeerSelection = true;
+          TracePeerSelectionActions = true;
           options = {
             mapSeverity = {
+              "cardano.node.TxSubmissionProtocol" = "Debug";
+              "cardano.node.Mempool" = "Debug";
               "cardano.node.TxInbound" = "Debug";
               "cardano.node.TxSubmissionLogic" = "Debug";
             };
