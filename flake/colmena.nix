@@ -51,6 +51,7 @@ in
       # node-ig-turbo = mkCustomNode "cardano-node-ig-turbo";
       node-readbuffer-ig-turbo = mkCustomNode "cardano-node-readbuffer-ig-turbo";
       # node-readbuffer = mkCustomNode "cardano-node-10-3-readbuffer";
+      node-cardano-diffusion = mkCustomNode "cardano-node-cardano-diffusion";
 
       # Cardano group assignments:
       group = name: {
@@ -240,81 +241,27 @@ in
 
       # When customized per machine topology is needed:
       # TODO: we SHOULD enable `rel` on some of our nodes
-      # rel = {
-      #   imports = [
-      #     # Relay role (opens the node port)
-      #     inputs.cardano-parts.nixosModules.role-relay
-      #
-      #     # Include blockPerf monitoring on all relay class nodes
-      #     # Enables `TraceChainsSyncClient` & `TraceBlockFetchClient`.
-      #     bperf
-      #     # Enalble json logging to journald via stdout (`JournalSK` is broken
-      #     # with `json` output); with bperf enabled, we need to recreate it's
-      #     # logging setup
-      #     {
-      #       services.cardano-node.extraNodeInstanceConfig = _: {
-      #         defaultScribes = [
-      #           [
-      #             "StdoutSK"
-      #             "stdout"
-      #           ]
-      #           [
-      #             "FileSK"
-      #             "/var/lib/cardano-node/blockperf/node.json"
-      #           ]
-      #         ];
-      #
-      #         setupScribes = [
-      #           {
-      #             scFormat = "ScJson";
-      #             scKind = "StdoutSK";
-      #             scName = "stdout";
-      #           }
-      #           {
-      #             scFormat = "ScJson";
-      #             scKind = "FileSK";
-      #             scName = "/var/lib/cardano-node/blockperf/node.json";
-      #             scRotation = {
-      #               rpKeepFilesNum = 10;
-      #               rpLogLimitBytes = 5242880;
-      #               rpMaxAgeHours = 24;
-      #             };
-      #           }
-      #         ];
-      #       };
-      #     }
-      #   ];
-      # };
-
-      # Blockperf for bootstrap nodes
-      # Utilize the /etc/hosts list for bp ip lookups
-      # bpDnsList = map (bpNode: "${bpNode}.public-ipv4") (filter (hasInfix "-bp-") (attrNames nixosConfigurations));
-
-      # bperf = {
-      #   imports = [
-      #     inputs.cardano-parts.nixosModules.profile-blockperf
-      #     {
-      #       services.blockperf = {
-      #         name = "iog-network-team";
-      #         clientCert = "blockperf-iog-network-team-certificate.pem.enc";
-      #         clientKey = "blockperf-iog-network-team-private.key.enc";
-      #       };
-      #     }
-      #   ];
-      # };
-
-      relNoBperf = {
+      rel = {
         imports = [
           # Relay role (opens the node port)
           inputs.cardano-parts.nixosModules.role-relay
+
+          # Include blockPerf monitoring on all relay class nodes
+          # Enables `TraceChainsSyncClient` & `TraceBlockFetchClient`.
+          bperf
           # Enalble json logging to journald via stdout (`JournalSK` is broken
-          # with `json` output).
+          # with `json` output); with bperf enabled, we need to recreate it's
+          # logging setup
           {
             services.cardano-node.extraNodeInstanceConfig = _: {
               defaultScribes = [
                 [
                   "StdoutSK"
                   "stdout"
+                ]
+                [
+                  "FileSK"
+                  "/var/lib/cardano-node/blockperf/node.json"
                 ]
               ];
 
@@ -324,11 +271,65 @@ in
                   scKind = "StdoutSK";
                   scName = "stdout";
                 }
+                {
+                  scFormat = "ScJson";
+                  scKind = "FileSK";
+                  scName = "/var/lib/cardano-node/blockperf/node.json";
+                  scRotation = {
+                    rpKeepFilesNum = 10;
+                    rpLogLimitBytes = 5242880;
+                    rpMaxAgeHours = 24;
+                  };
+                }
               ];
             };
           }
         ];
       };
+
+      # Blockperf for bootstrap nodes
+      # Utilize the /etc/hosts list for bp ip lookups
+      # bpDnsList = map (bpNode: "${bpNode}.public-ipv4") (filter (hasInfix "-bp-") (attrNames nixosConfigurations));
+
+      bperf = {
+        imports = [
+          inputs.cardano-parts.nixosModules.profile-blockperf
+          {
+            services.blockperf = {
+              name = "iog-network-team";
+              amazonCa = "blockperf-amazon-ca.pem.enc";
+              clientCert = "blockperf-iog-network-team-certificate.pem.enc";
+              clientKey = "blockperf-iog-network-team-private.key.enc";
+            };
+          }
+        ];
+      };
+      # relNoBperf = {
+      #   imports = [
+      #     # Relay role (opens the node port)
+      #     inputs.cardano-parts.nixosModules.role-relay
+      #     # Enalble json logging to journald via stdout (`JournalSK` is broken
+      #     # with `json` output).
+      #     {
+      #       services.cardano-node.extraNodeInstanceConfig = _: {
+      #         defaultScribes = [
+      #           [
+      #             "StdoutSK"
+      #             "stdout"
+      #           ]
+      #         ];
+      #
+      #         setupScribes = [
+      #           {
+      #             scFormat = "ScJson";
+      #             scKind = "StdoutSK";
+      #             scName = "stdout";
+      #           }
+      #         ];
+      #       };
+      #     }
+      #   ];
+      # };
     in {
       meta = {
         nixpkgs = import inputs.nixpkgs {
@@ -377,7 +378,7 @@ in
           (ebs 300)
           (group "mainnet1")
           node-readbuffer-ig-turbo
-          relNoBperf
+          rel
           topoAu
           igTurboDebugTracing
         ];
@@ -389,7 +390,7 @@ in
           (ebs 300)
           (group "mainnet1")
           node-readbuffer-ig-turbo
-          relNoBperf
+          rel
           topoBr
           igTurboDebugTracing
         ];
@@ -401,7 +402,7 @@ in
           (ebs 300)
           (group "mainnet1")
           node-readbuffer-ig-turbo
-          relNoBperf
+          rel
           topoEu3
           igTurboDebugTracing
         ];
@@ -413,7 +414,7 @@ in
           (ebs 300)
           (group "mainnet1")
           node-readbuffer-ig-turbo
-          relNoBperf
+          rel
           topoJp
           igTurboDebugTracing
         ];
@@ -425,7 +426,7 @@ in
           (ebs 300)
           (group "mainnet1")
           node-readbuffer-ig-turbo
-          relNoBperf
+          rel
           topoSa
           igTurboDebugTracing
         ];
@@ -437,7 +438,7 @@ in
           (ebs 300)
           (group "mainnet1")
           node-readbuffer-ig-turbo
-          relNoBperf
+          rel
           topoSg
           peerSharingDisabled
           igTurboDebugTracing
@@ -450,7 +451,7 @@ in
           (ebs 300)
           (group "mainnet1")
           node-tx-submission
-          relNoBperf
+          rel
           topoUs1
           txSubmissionLogicV2Flags
         ];
@@ -461,8 +462,8 @@ in
           m6i-2xlarge
           (ebs 300)
           (group "mainnet1")
-          node-readbuffer-ig-turbo
-          relNoBperf
+          node-cardano-diffusion
+          rel
           topoUs2
           igTurboDebugTracing
         ];

@@ -32,7 +32,12 @@ with lib; let
   underscore = replaceStrings ["-"] ["_"];
 
   nixosConfigurations = mapAttrs (_: node: node.config) config.flake.nixosConfigurations;
-  nodes = filterAttrs (_: node: node.aws != null && node.aws.instance.count > 0) nixosConfigurations;
+  nodes =
+    filterAttrs (
+      name: node:
+        (builtins.traceVerbose "Evaluating machine: ${name}" node.aws != null) && node.aws.instance.count > 0
+    )
+    nixosConfigurations;
   dnsEnabledNodes = filterAttrs (_: node: node.cardano-parts.perNode.meta.enableDns) nodes;
 
   mapNodes = f: mapAttrs f nodes;
@@ -180,7 +185,7 @@ in {
               filter = [
                 {
                   name = "name";
-                  values = ["nixos/24.11*"];
+                  values = ["nixos/25.05*"];
                 }
                 {
                   name = "architecture";
@@ -446,17 +451,32 @@ in {
 
           aws_iam_role_policy_attachment = let
             mkRoleAttachments = roleResourceName: policyList:
-              listToAttrs (map (policy: {
+              listToAttrs (map (policy:
+                if isString policy
+                then {
                   name = "${roleResourceName}_policy_attachment_${policy}";
                   value = {
                     role = "\${aws_iam_role.${roleResourceName}.name}";
                     policy_arn = "\${aws_iam_policy.${policy}.arn}";
                   };
+                }
+                else {
+                  name = "${roleResourceName}_policy_attachment_${policy.name}";
+                  value = {
+                    role = "\${aws_iam_role.${roleResourceName}.name}";
+                    policy_arn = policy.arn;
+                  };
                 })
-                policyList);
+              policyList);
           in
             foldl' recursiveUpdate {} [
-              (mkRoleAttachments "ec2_role" ["kms_user"])
+              (mkRoleAttachments "ec2_role" [
+                "kms_user"
+                {
+                  name = "ssm";
+                  arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore";
+                }
+              ])
             ];
 
           aws_iam_policy.kms_user = {
@@ -540,11 +560,12 @@ in {
                     from_port = 443;
                     to_port = 443;
                   })
-                  (mkRule {
-                    description = "Allow SSH";
-                    from_port = 22;
-                    to_port = 22;
-                  })
+                  # No longer required with SSH over SSM
+                  # (mkRule {
+                  #   description = "Allow SSH";
+                  #   from_port = 22;
+                  #   to_port = 22;
+                  # })
                   (mkRule {
                     description = "Allow Cardano";
                     from_port = 3001;
@@ -625,7 +646,13 @@ in {
               ${
                 concatStringsSep "\n" (map (name: ''
                     Host ${name}
+                      HostName ''${aws_instance.${name}[0].id}
+                      ProxyCommand sh -c "aws --region ${nodes.${name}.aws.region} ssm start-session --target %h --document-name AWS-StartSSHSession --parameters 'portNumber=%p'"
+                      Tag ${nodes.${name}.aws.instance.instance_type}
+
+                    Host ${name}.ipv4
                       HostName ''${aws_eip.${name}[0].public_ip}
+                      Tag ${nodes.${name}.aws.region}
 
                     Host ${name}.ipv6
                       HostName ''${length(aws_instance.${name}[0].ipv6_addresses) > 0 ? aws_instance.${name}[0].ipv6_addresses[0] : "unavailable.ipv6"}

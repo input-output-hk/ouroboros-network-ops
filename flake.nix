@@ -6,10 +6,9 @@
     nixpkgs-unstable.follows = "cardano-parts/nixpkgs-unstable";
     flake-parts.follows = "cardano-parts/flake-parts";
 
-    # Latest commits on branch next-2025-02-27 will introduce some tracing system issues,
-    # so pin it at an earlier commit on that branch for now.
-    cardano-parts.url = "github:input-output-hk/cardano-parts/8881275acb18dd4fcc6aaee9c5c7f834e526f562";
-    # currently `cardano-parts` gives us access to `cardano-node-10.2.1`
+    # Using cardano-parts release v2025-06-24, we get SSH over SSM migration completed.
+    # Currently `cardano-parts` gives us access to cardano-node `10.4.1` and `10.5.0`.
+    cardano-parts.url = "github:input-output-hk/cardano-parts/v2025-06-24";
 
     # Local pins for additional customization:
     cardano-node-tx-submission.url = "github:IntersectMBO/cardano-node/coot/tx-submission-10.5";
@@ -17,6 +16,7 @@
     cardano-node-readbuffer-ig-turbo.url = "github:IntersectMBO/cardano-node/karknu/10_3_0_ig_readbuffer";
     cardano-node-10-3.url = "github:IntersectMBO/cardano-node/10.3.0";
     cardano-node-10-3-readbuffer.url = "github:IntersectMBO/cardano-node/karknu/10_3_0_read_buffer";
+    cardano-node-cardano-diffusion.url = "github:IntersectMBO/cardano-node/coot/cardano-diffusion-integration";
     iohk-nix-9-2-1.url = "github:input-output-hk/iohk-nix/master";
   };
 
