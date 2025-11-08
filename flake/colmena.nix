@@ -7,8 +7,6 @@
 }: let
   inherit (config.flake) nixosModules nixosConfigurations;
   # inherit (config.flake.cardano-parts.cluster.infra.aws) domain;
-
-  cfgGeneric = config.flake.cardano-parts.cluster.infra.generic;
 in
   with builtins;
   with lib; {
@@ -59,7 +57,8 @@ in
 
         # Since all machines are assigned a group, this is a good place to include default aws instance tags
         aws.instance.tags = {
-          inherit (cfgGeneric) organization tribe function repo;
+          # This group environment name will override the
+          # flake.cluster.infra.generic environment name for aws instances.
           environment = config.flake.cardano-parts.cluster.groups.${name}.meta.environmentName;
           group = name;
         };
@@ -87,10 +86,16 @@ in
         imports = [
           # Base cardano-node service
           config.flake.cardano-parts.cluster.groups.default.meta.cardano-node-service
+          config.flake.cardano-parts.cluster.groups.default.meta.cardano-tracer-service
 
           # Config for cardano-node group deployments
           inputs.cardano-parts.nixosModules.profile-cardano-node-group
           inputs.cardano-parts.nixosModules.profile-cardano-custom-metrics
+
+          # Keep legacy tracing for now
+          {
+            services.cardano-node.useLegacyTracing = true;
+          }
         ];
       };
 
