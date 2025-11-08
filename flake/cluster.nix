@@ -56,6 +56,13 @@
       function = "cardano-parts";
       repo = "https://github.com/input-output-hk/ouroboros-network-ops";
 
+      owner = "ioe";
+      environment = "mainnetNonProd";
+      project = "ouroboros-network-ops";
+
+      # This is the tf var secrets name located in secrets/tf/cluster.tfvars
+      costCenter = "tag_costCenter";
+
       # By default abort and warn if the ip-module is missing:
       abortOnMissingIpModule = true;
       warnOnMissingIpModule = true;
