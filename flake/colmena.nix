@@ -40,19 +40,35 @@ in
       # disableAlertCount.cardano-parts.perNode.meta.enableAlertCount = false;
       # delete.aws.instance.count = 0;
 
-      mkCustomNode = flakeInput:
-        node
+      mkOldCustomNode = flakeInput: iohkNixInput:
+        {
+          imports = [
+            # Base cardano-node service
+            "${inputs.cardano-node-service-10-3-0}/nix/nixos/cardano-node-service.nix"
+            "${inputs.cardano-node-service-10-3-0}/nix/nixos/cardano-tracer-service.nix"
+
+            # Config for cardano-node group deployments
+            inputs.cardano-parts-service-10-3-0.nixosModules.profile-cardano-node-group
+            inputs.cardano-parts-service-10-3-0.nixosModules.profile-cardano-custom-metrics
+
+            # Keep legacy tracing for now
+            {
+              services.cardano-node.useLegacyTracing = true;
+            }
+          ];
+        }
         // {
           cardano-parts.perNode = {
+            lib.cardanoLib = config.flake.cardano-parts.pkgs.special.cardanoLibCustom inputs.${iohkNixInput} "x86_64-linux";
             pkgs = {inherit (inputs.${flakeInput}.packages.x86_64-linux) cardano-cli cardano-node cardano-submit-api;};
           };
         };
 
-      node-tx-submission = mkCustomNode "cardano-node-tx-submission";
-      # node-ig-turbo = mkCustomNode "cardano-node-ig-turbo";
-      node-readbuffer-ig-turbo = mkCustomNode "cardano-node-readbuffer-ig-turbo";
-      # node-readbuffer = mkCustomNode "cardano-node-10-3-readbuffer";
-      node-cardano-diffusion = mkCustomNode "cardano-node-cardano-diffusion";
+      node-tx-submission = mkOldCustomNode "cardano-node-tx-submission" "iohk-nix-10-4-0";
+      # node-ig-turbo = mkOldCustomNode "cardano-node-ig-turbo";
+      node-readbuffer-ig-turbo = mkOldCustomNode "cardano-node-readbuffer-ig-turbo" "iohk-nix-10-4-0";
+      # node-readbuffer = mkOldCustomNode "cardano-node-10-3-readbuffer";
+      node-cardano-diffusion = mkOldCustomNode "cardano-node-cardano-diffusion" "iohk-nix-10-4-0";
 
       # Cardano group assignments:
       group = name: {
@@ -85,22 +101,22 @@ in
       # staticIpv6 = ipv6: {aws.instance.ipv6 = ipv6;};
 
       # Cardano-node modules for group deployment
-      node = {
-        imports = [
-          # Base cardano-node service
-          config.flake.cardano-parts.cluster.groups.default.meta.cardano-node-service
-          config.flake.cardano-parts.cluster.groups.default.meta.cardano-tracer-service
+      # node = {
+      #   imports = [
+      #     # Base cardano-node service
+      #     config.flake.cardano-parts.cluster.groups.default.meta.cardano-node-service
+      #     config.flake.cardano-parts.cluster.groups.default.meta.cardano-tracer-service
 
-          # Config for cardano-node group deployments
-          inputs.cardano-parts.nixosModules.profile-cardano-node-group
-          inputs.cardano-parts.nixosModules.profile-cardano-custom-metrics
+      #     # Config for cardano-node group deployments
+      #     inputs.cardano-parts.nixosModules.profile-cardano-node-group
+      #     inputs.cardano-parts.nixosModules.profile-cardano-custom-metrics
 
-          # Keep legacy tracing for now
-          {
-            services.cardano-node.useLegacyTracing = true;
-          }
-        ];
-      };
+      #     # Keep legacy tracing for now
+      #     {
+      #       services.cardano-node.useLegacyTracing = true;
+      #     }
+      #   ];
+      # };
 
       # Profiles
       # customRts = (nixos: let
