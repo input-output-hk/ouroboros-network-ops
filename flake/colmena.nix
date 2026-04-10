@@ -25,6 +25,7 @@ in
       # Instance defs:
       # t3a-small.aws.instance.instance_type = "t3a.small";
       m6i-2xlarge.aws.instance.instance_type = "m6i.2xlarge";
+      c8i-16xlarge.aws.instance.instance_type = "c8i.16xlarge";
 
       # Helper fns:
       ebs = size: {aws.instance.root_block_device.volume_size = mkDefault size;};
@@ -34,7 +35,7 @@ in
       # ebsHighPerf = recursiveUpdate (ebsIops 10000) (ebsTp 1000);
 
       # Required module code for any new machines spun up using the new zfs AMI
-      # amiZfs = {imports = [nixosModules.ami];};
+      amiZfs = {imports = [nixosModules.ami];};
 
       # Helper defs:
       # disableAlertCount.cardano-parts.perNode.meta.enableAlertCount = false;
@@ -493,6 +494,16 @@ in
           rel
           topoUs2
           igTurboDebugTracing
+        ];
+      };
+
+      ignite1-eu3-1 = {
+        imports = [
+          eu3
+          c8i-16xlarge
+          (ebs 300)
+          (group "ignite1")
+          amiZfs
         ];
       };
     };
