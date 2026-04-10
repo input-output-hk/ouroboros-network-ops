@@ -33,6 +33,9 @@ in
       # ebsTp = tp: {aws.instance.root_block_device.throughput = mkDefault tp;};
       # ebsHighPerf = recursiveUpdate (ebsIops 10000) (ebsTp 1000);
 
+      # Required module code for any new machines spun up using the new zfs AMI
+      # amiZfs = {imports = [nixosModules.ami];};
+
       # Helper defs:
       # disableAlertCount.cardano-parts.perNode.meta.enableAlertCount = false;
       # delete.aws.instance.count = 0;
