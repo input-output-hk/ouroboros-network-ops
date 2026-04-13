@@ -213,6 +213,72 @@ in
         ];
       };
 
+      ignite = {pkgs, ...}: {
+        system.activationScripts.binbash = ''
+          ln -sf ${pkgs.bashInteractive}/bin/bash /bin/bash
+        '';
+
+        environment.variables.HOST_INTERFACE = "dummy0";
+
+        virtualisation.docker.enable = true;
+
+        environment.systemPackages = with pkgs; [
+          curl
+          git
+          iproute2
+          gnumake
+          gnutar
+          yq-go
+        ];
+
+        users.mutableUsers = false;
+
+        users.users.ignite = {
+          isNormalUser = true;
+          extraGroups = ["wheel" "docker"];
+        };
+
+        boot.kernelModules = ["dummy"];
+
+        security.sudo.wheelNeedsPassword = false;
+
+        systemd.services.dummy-interface = {
+          description = "Create dummy0 network interface";
+          after = ["network-online.target"];
+          wants = ["network-online.target"];
+          wantedBy = ["multi-user.target"];
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            ExecStart = pkgs.writeShellScript "dummy-interface-up" ''
+              ${pkgs.iproute2}/bin/ip link add dummy0 type dummy 2>/dev/null || true
+              ${pkgs.iproute2}/bin/ip link set dummy0 up
+            '';
+          };
+        };
+
+        networking.dhcpcd.denyInterfaces = ["dummy0"];
+
+        systemd.services.docker-loki-plugin = {
+          description = "Install Grafana Loki Docker logging driver plugin";
+          after = ["docker.service"];
+          requires = ["docker.service"];
+          wantedBy = ["multi-user.target"];
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            ExecStart = pkgs.writeShellScript "install-loki-plugin" ''
+              if ! ${pkgs.docker}/bin/docker plugin ls --format '{{.Name}}' \
+                  | grep -q '^loki:'; then
+                ${pkgs.docker}/bin/docker plugin install \
+                  grafana/loki-docker-driver \
+                  --alias loki \
+                  --grant-all-permissions
+              fi
+            '';
+          };
+        };
+      };
       # Include blockPerf by default with no upstream push to CF -- only push prom metrics
       # bperfNoPublish = {
       #   imports = [
@@ -276,7 +342,7 @@ in
       mainnet1-rel-us1-1 = {imports = [us1 m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoUs1];};
       mainnet1-rel-us2-1 = {imports = [us2 m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoUs2];};
 
-      ignite1-eu3-1 = {imports = [eu3 c8i-16xlarge (ebs 300) (group "ignite1") amiZfs ]; };
+      ignite1-eu3-1 = {imports = [eu3 c8i-16xlarge (ebs 300) (group "ignite1") ignite amiZfs];};
     };
 
     flake.colmenaHive = inputs.cardano-parts.inputs.colmena.lib.makeHive self.outputs.colmena;
