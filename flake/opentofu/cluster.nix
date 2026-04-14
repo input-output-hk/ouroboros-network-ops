@@ -203,27 +203,46 @@ in {
           aws_region.current = {};
           aws_route53_zone.selected.name = "${cluster.domain}.";
 
-          aws_ami = mapRegions ({region, ...}: {
-            "nixos_${system}_${underscore region}" = {
-              provider = "aws.${region}";
-              most_recent = true;
-              owners = [infra.aws.orgId];
-              filter = [
-                {
-                  name = "name";
-                  values = ["NixOS/*"];
-                }
-                {
-                  name = "tag:system";
-                  values = [system];
-                }
-                {
-                  name = "tag:version";
-                  values = ["25.11.*"];
-                }
-              ];
+          aws_ami =
+            mapRegions ({region, ...}: {
+              "nixos_${system}_${underscore region}" = {
+                provider = "aws.${region}";
+                most_recent = true;
+                owners = [infra.aws.orgId];
+                filter = [
+                  {
+                    name = "name";
+                    values = ["NixOS/*"];
+                  }
+                  {
+                    name = "tag:system";
+                    values = [system];
+                  }
+                  {
+                    name = "tag:version";
+                    values = ["25.11.*"];
+                  }
+                ];
+              };
+            })
+            // {
+              # Debian 13 (Trixie) AMI for ignite1-eu3-1
+              debian_13_eu_west_3 = {
+                provider = "aws.eu_west_3";
+                most_recent = true;
+                owners = ["136693071363"]; # Debian official AWS account
+                filter = [
+                  {
+                    name = "name";
+                    values = ["debian-13-amd64-*"];
+                  }
+                  {
+                    name = "architecture";
+                    values = ["x86_64"];
+                  }
+                ];
+              };
             };
-          });
 
           # Ref: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html
           aws_availability_zones = mapRegions ({region, ...}: {
@@ -396,75 +415,124 @@ in {
               }
           );
 
-          aws_instance = mapNodes (
-            name: node: let
-              inherit (node.aws) region;
-            in
-              {
-                inherit (node.aws.instance) count instance_type;
+          aws_instance =
+            mapNodes (
+              name: node: let
+                inherit (node.aws) region;
+              in
+                {
+                  inherit (node.aws.instance) count instance_type;
 
-                provider = awsProviderFor region;
-                ami =
-                  node.aws.instance.ami or "\${data.aws_ami.nixos_${
-                    with node.nixpkgs; crossSystem.system or localSystem.system
-                  }_${underscore region}.id}";
+                  provider = awsProviderFor region;
+                  ami =
+                    node.aws.instance.ami or "\${data.aws_ami.nixos_${
+                      with node.nixpkgs; crossSystem.system or localSystem.system
+                    }_${underscore region}.id}";
+                  iam_instance_profile = "\${aws_iam_instance_profile.ec2_profile.name}";
+
+                  monitoring = true;
+                  key_name = "\${aws_key_pair.bootstrap_${underscore region}[0].key_name}";
+                  vpc_security_group_ids = [
+                    "\${aws_security_group.common_${underscore region}[0].id}"
+                  ];
+
+                  # Provider level `default_tags` are automatically inherited at
+                  # the instance level.  Instance specific tags defined in
+                  # flake/colmena.nix are merged.
+                  tags = {Name = name;} // node.aws.instance.tags or {};
+
+                  root_block_device = {
+                    inherit (node.aws.instance.root_block_device) volume_size;
+                    volume_type = "gp3";
+                    iops = node.aws.instance.root_block_device.iops or 3000;
+                    throughput = node.aws.instance.root_block_device.throughput or 125;
+                    delete_on_termination = true;
+
+                    # Default tags are not inherited to the volume level automatically.
+                    tags = defaultTags // {Name = name;} // node.aws.instance.tags or {};
+                  };
+
+                  metadata_options = {
+                    http_endpoint = "enabled";
+                    http_put_response_hop_limit = 2;
+                    http_tokens = "optional";
+                  };
+
+                  lifecycle = [{ignore_changes = ["ami" "user_data"];}];
+                }
+                // optionalAttrs (node.aws.instance ? availability_zone) {
+                  inherit (node.aws.instance) availability_zone;
+                }
+                # Use nix declared ipv6 if available.  This should only be used
+                # for public machines where ip exposure in committed code is
+                # acceptable and a vanity address is needed. Ie: don't use this
+                # for bps.
+                #
+                # NOTE: As of aws provider 5.66.0, switching from
+                # ipv6_address_count to ipv6_addresses will force an instance
+                # replacement. If a self-declared ipv6 is required but
+                # destroying and re-creating instances to change ipv6 is not
+                # acceptable, then until the bug is fixed, continue using
+                # auto-assignment only, manually change the ipv6 in the console
+                # ui, and run tf apply to update state.
+                #
+                # Ref: https://github.com/hashicorp/terraform-provider-aws/issues/39433
+                // optionalAttrs (node.aws.instance ? ipv6) {
+                  ipv6_addresses = "\${data.aws_vpc.${underscore region}.ipv6_cidr_block == \"\" ? null : tolist([\"${node.aws.instance.ipv6}\"])}";
+                }
+                # Otherwise use aws ipv6 auto-assignment
+                // optionalAttrs (!(node.aws.instance ? ipv6)) {
+                  ipv6_address_count = "\${data.aws_vpc.${underscore region}.ipv6_cidr_block == \"\" ? null : 1}";
+                }
+            )
+            # Standalone Debian instances (not managed by colmena/NixOS)
+            // {
+              ignite1-eu3-1 = {
+                provider = awsProviderFor "eu_west_3";
+                ami = "\${data.aws_ami.debian_13_eu_west_3.id}";
+                instance_type = "c8i.16xlarge";
                 iam_instance_profile = "\${aws_iam_instance_profile.ec2_profile.name}";
-
                 monitoring = true;
-                key_name = "\${aws_key_pair.bootstrap_${underscore region}[0].key_name}";
-                vpc_security_group_ids = [
-                  "\${aws_security_group.common_${underscore region}[0].id}"
-                ];
-
-                # Provider level `default_tags` are automatically inherited at
-                # the instance level.  Instance specific tags defined in
-                # flake/colmena.nix are merged.
-                tags = {Name = name;} // node.aws.instance.tags or {};
-
-                root_block_device = {
-                  inherit (node.aws.instance.root_block_device) volume_size;
-                  volume_type = "gp3";
-                  iops = node.aws.instance.root_block_device.iops or 3000;
-                  throughput = node.aws.instance.root_block_device.throughput or 125;
-                  delete_on_termination = true;
-
-                  # Default tags are not inherited to the volume level automatically.
-                  tags = defaultTags // {Name = name;} // node.aws.instance.tags or {};
+                key_name = "\${aws_key_pair.bootstrap_eu_west_3[0].key_name}";
+                vpc_security_group_ids = ["\${aws_security_group.common_eu_west_3[0].id}"];
+                tags = {
+                  Name = "ignite1-eu3-1";
+                  environment = "mainnet";
+                  group = "ignite1";
                 };
-
+                root_block_device = {
+                  volume_size = 300;
+                  volume_type = "gp3";
+                  iops = 3000;
+                  throughput = 125;
+                  delete_on_termination = true;
+                  tags =
+                    defaultTags
+                    // {
+                      Name = "ignite1-eu3-1";
+                      environment = "mainnet";
+                      group = "ignite1";
+                    };
+                };
                 metadata_options = {
                   http_endpoint = "enabled";
                   http_put_response_hop_limit = 2;
                   http_tokens = "optional";
                 };
-
+                ipv6_address_count = "\${data.aws_vpc.eu_west_3.ipv6_cidr_block == \"\" ? null : 1}";
+                user_data = ''
+                  #!/bin/bash
+                  set -euo pipefail
+                  apt-get update -y
+                  apt-get install -y wget
+                  wget -q https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb
+                  dpkg -i amazon-ssm-agent.deb
+                  systemctl enable amazon-ssm-agent
+                  systemctl start amazon-ssm-agent
+                '';
                 lifecycle = [{ignore_changes = ["ami" "user_data"];}];
-              }
-              // optionalAttrs (node.aws.instance ? availability_zone) {
-                inherit (node.aws.instance) availability_zone;
-              }
-              # Use nix declared ipv6 if available.  This should only be used
-              # for public machines where ip exposure in committed code is
-              # acceptable and a vanity address is needed. Ie: don't use this
-              # for bps.
-              #
-              # NOTE: As of aws provider 5.66.0, switching from
-              # ipv6_address_count to ipv6_addresses will force an instance
-              # replacement. If a self-declared ipv6 is required but
-              # destroying and re-creating instances to change ipv6 is not
-              # acceptable, then until the bug is fixed, continue using
-              # auto-assignment only, manually change the ipv6 in the console
-              # ui, and run tf apply to update state.
-              #
-              # Ref: https://github.com/hashicorp/terraform-provider-aws/issues/39433
-              // optionalAttrs (node.aws.instance ? ipv6) {
-                ipv6_addresses = "\${data.aws_vpc.${underscore region}.ipv6_cidr_block == \"\" ? null : tolist([\"${node.aws.instance.ipv6}\"])}";
-              }
-              # Otherwise use aws ipv6 auto-assignment
-              // optionalAttrs (!(node.aws.instance ? ipv6)) {
-                ipv6_address_count = "\${data.aws_vpc.${underscore region}.ipv6_cidr_block == \"\" ? null : 1}";
-              }
-          );
+              };
+            };
 
           aws_iam_instance_profile.ec2_profile = {
             name = "ec2Profile";
@@ -553,14 +621,28 @@ in {
             };
           });
 
-          aws_eip = mapNodes (name: node: {
-            inherit (node.aws.instance) count;
-            provider = awsProviderFor node.aws.region;
-            instance = "\${aws_instance.${name}[0].id}";
+          aws_eip =
+            mapNodes (name: node: {
+              inherit (node.aws.instance) count;
+              provider = awsProviderFor node.aws.region;
+              instance = "\${aws_instance.${name}[0].id}";
 
-            # Provider level `default_tags` are automatically inherited.
-            tags = {Name = name;} // node.aws.instance.tags or {};
-          });
+              # Provider level `default_tags` are automatically inherited.
+              tags = {Name = name;} // node.aws.instance.tags or {};
+            })
+            // {
+              ignite1-eu3-1 = {
+                provider = awsProviderFor "eu_west_3";
+                instance = "\${aws_instance.ignite1-eu3-1.id}";
+                tags =
+                  defaultTags
+                  // {
+                    Name = "ignite1-eu3-1";
+                    environment = "mainnet";
+                    group = "ignite1";
+                  };
+              };
+            };
 
           aws_eip_association = mapNodes (name: node: {
             inherit (node.aws.instance) count;
@@ -674,7 +756,27 @@ in {
             dnsEnabledNodes
             // mkMultivalueDnsResources bookMultivalueDnsAttrs
             // mkMultivalueDnsResources groupMultivalueDnsAttrs
-            // mkCustomRoute53Records;
+            // mkCustomRoute53Records
+            # DNS records for standalone Debian ignite1-eu3-1
+            // {
+              "ignite1-eu3-1" = {
+                zone_id = "\${data.aws_route53_zone.selected.zone_id}";
+                name = "ignite1-eu3-1.\${data.aws_route53_zone.selected.name}";
+                type = "A";
+                ttl = "300";
+                records = ["\${aws_eip.ignite1-eu3-1.public_ip}"];
+                allow_overwrite = true;
+              };
+              "ignite1-eu3-1-AAAA" = {
+                count = "1";
+                zone_id = "\${data.aws_route53_zone.selected.zone_id}";
+                name = "ignite1-eu3-1.\${data.aws_route53_zone.selected.name}";
+                type = "AAAA";
+                ttl = "300";
+                records = ["\${aws_instance.ignite1-eu3-1.ipv6_addresses[0]}"];
+                allow_overwrite = true;
+              };
+            };
 
           # This `.ssh_config` file output format is expected by just recipes
           # such as `list-machines` in order to be parsable.
@@ -682,13 +784,6 @@ in {
             filename = "\${path.module}/.ssh_config";
             file_permission = "0600";
             content = ''
-              Host *
-                User root
-                UserKnownHostsFile /dev/null
-                StrictHostKeyChecking no
-                ServerAliveCountMax 2
-                ServerAliveInterval 60
-
               ${
                 concatStringsSep "\n" (map (name: ''
                     Host ${name}
@@ -705,6 +800,27 @@ in {
                   '')
                   (attrNames nodes))
               }
+              Host ignite1-eu3-1
+                HostName ''${aws_instance.ignite1-eu3-1.id}
+                ProxyCommand sh -c "aws --region eu-west-3 ssm start-session --target %h --document-name AWS-StartSSHSession --parameters 'portNumber=%p'"
+                Tag c8i.16xlarge
+                User admin
+
+              Host ignite1-eu3-1.ipv4
+                HostName ''${aws_eip.ignite1-eu3-1.public_ip}
+                Tag eu-west-3
+                User admin
+
+              Host ignite1-eu3-1.ipv6
+                HostName ''${length(aws_instance.ignite1-eu3-1.ipv6_addresses) > 0 ? aws_instance.ignite1-eu3-1.ipv6_addresses[0] : "unavailable.ipv6"}
+                User admin
+
+              Host *
+                User root
+                UserKnownHostsFile /dev/null
+                StrictHostKeyChecking no
+                ServerAliveCountMax 2
+                ServerAliveInterval 60
             '';
           };
         };

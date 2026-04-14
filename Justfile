@@ -102,6 +102,9 @@ checkSshConfig := '''
   if $runCheck {
     print "Checking nixosCfg, sshCfg, and ipModuleCfg for consistency..."
 
+    # Machines provisioned directly by tofu, not managed by colmena/NixOS
+    let nonNixosMachines = ["ignite1-eu3-1"]
+
     let nixosCfg = (nix eval --json ".#nixosConfigurations" --apply "builtins.attrNames" | from json)
 
     let sshCfg = (
@@ -138,20 +141,24 @@ checkSshConfig := '''
       | parse --regex `(?m)    (?<machine>.*) = {$\n(\s+privateIpv4 = \"(?<privIpv4>.*)";\n)?(\s+publicIpv4 = \"(?<pubIpv4>.*)";\n)?(\s+publicIpv6 = \"(?<pubIpv6>.*)";\n)?\s+};`
       | select machine privIpv4 pubIpv4 pubIpv6
       | update cells { if ($in | is-empty) { null } else { $in } }
+      | where {|r| ($nonNixosMachines | where {|m| $m == $r.machine} | is-empty) }
       | sort-by machine
     } else {
       []
     }
 
+    let ssh4NixosCfg = ($ssh4Cfg | where {|r| ($nonNixosMachines | where {|m| $m == $r.machine} | is-empty) })
+    let ssh6NixosCfg = ($ssh6Cfg | where {|r| ($nonNixosMachines | where {|m| $m == $r.machine} | is-empty) })
+
     let comparisons = [
       {
         label: "NixosConfigurations vs SSH hosts",
-        result: (list-diff $nixosCfg ($ssh4Cfg | get machine) onlyInNixosCfg onlyInSshCfg),
+        result: (list-diff $nixosCfg ($ssh4NixosCfg | get machine) onlyInNixosCfg onlyInSshCfg),
         hint: "just save-ssh-config or just tf apply"
       }
       {
         label: "SSH IPv4 vs SSH IPv6 machines",
-        result: (list-diff ($ssh4Cfg | get machine) ($ssh6Cfg | get machine) onlyInSsh4Cfg onlyInSsh6Cfg),
+        result: (list-diff ($ssh4NixosCfg | get machine) ($ssh6NixosCfg | get machine) onlyInSsh4Cfg onlyInSsh6Cfg),
         hint: "just save-ssh-config or just tf apply"
       }
       {
@@ -164,14 +171,14 @@ checkSshConfig := '''
       {
         label: "SSH public IPv4 vs IP module IPv4 values",
         result: (if $hasIpModule {
-          list-diff ($ssh4Cfg | get pubIpv4) ($moduleIps | get pubIpv4) onlyInSshCfg onlyInIpsModuleCfg
+          list-diff ($ssh4NixosCfg | get pubIpv4) ($moduleIps | get pubIpv4) onlyInSshCfg onlyInIpsModuleCfg
         } else {[]}),
         hint: "just update-ips"
       }
       {
         label: "SSH public IPv6 vs IP module IPv6 values",
         result: (if $hasIpModule {
-          list-diff ($ssh6Cfg | get pubIpv6) ($moduleIps | get pubIpv6) onlyInSshCfg onlyInIpsModuleCfg
+          list-diff ($ssh6NixosCfg | get pubIpv6) ($moduleIps | get pubIpv6) onlyInSshCfg onlyInIpsModuleCfg
         } else {[]}),
         hint: "just update-ips"
       }
@@ -1073,6 +1080,9 @@ update-ips:
   tofu init -reconfigure
   tofu workspace select -or-create cluster
 
+  # Machines provisioned directly by tofu, not managed by colmena/NixOS
+  let nonNixosMachines = ["ignite1-eu3-1"]
+
   print "\n"
   let nodeCount = nix eval .#nixosConfigurations --raw --apply 'let f = x: toString (builtins.length (builtins.attrNames x)); in f'
   print $"Processing ip information for ($nodeCount) nixos machine configurations..."
@@ -1082,6 +1092,7 @@ update-ips:
   let eipRecords = ($tofuJson
     | get values.root_module.resources
     | where type == "aws_eip"
+    | where {|r| ($nonNixosMachines | where {|m| $m == $r.name} | is-empty) }
   )
 
   let instanceRecords = ($tofuJson
