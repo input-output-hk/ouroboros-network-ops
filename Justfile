@@ -13,8 +13,8 @@ null := ""
 stateDir := "STATEDIR=" + statePrefix / "$(basename $(git remote get-url origin))"
 statePrefix := "~/.local/share"
 
-# To skip ptrace permission modification prompting, env var AUTO_SET_ENV can be set to `false`
-autoSetEnv := env_var_or_default("AUTO_SET_ENV","unset")
+# Machines provisioned directly by tofu, not managed by colmena/NixOS
+nonNixosMachines := '["ignite1-eu3-1"]'
 
 # Environment variables can be used to change the default template diff and path comparison sources.
 # If TEMPLATE_PATH is set, it will have precedence, otherwise git url will be used for source templates.
@@ -102,8 +102,7 @@ checkSshConfig := '''
   if $runCheck {
     print "Checking nixosCfg, sshCfg, and ipModuleCfg for consistency..."
 
-    # Machines provisioned directly by tofu, not managed by colmena/NixOS
-    let nonNixosMachines = ["ignite1-eu3-1"]
+    let nonNixosMachines = ''' + nonNixosMachines + '''
 
     let nixosCfg = (nix eval --json ".#nixosConfigurations" --apply "builtins.attrNames" | from json)
 
@@ -1080,19 +1079,16 @@ update-ips:
   tofu init -reconfigure
   tofu workspace select -or-create cluster
 
-  # Machines provisioned directly by tofu, not managed by colmena/NixOS
-  let nonNixosMachines = ["ignite1-eu3-1"]
+  let nonNixosMachines = {{nonNixosMachines}}
 
   print "\n"
-  let nodeCount = nix eval .#nixosConfigurations --raw --apply 'let f = x: toString (builtins.length (builtins.attrNames x)); in f'
-  print $"Processing ip information for ($nodeCount) nixos machine configurations..."
+  let nixosNodeCount = nix eval .#nixosConfigurations --raw --apply 'let f = x: toString (builtins.length (builtins.attrNames x)); in f'
 
   let tofuJson = (tofu show -json | from json)
 
   let eipRecords = ($tofuJson
     | get values.root_module.resources
     | where type == "aws_eip"
-    | where {|r| ($nonNixosMachines | where {|m| $m == $r.name} | is-empty) }
   )
 
   let instanceRecords = ($tofuJson
@@ -1170,10 +1166,15 @@ update-ips:
   # The pre-push git hook will complain if this file has been committed accidently.
   git add --intent-to-add flake/nixosModules/ips-DONT-COMMIT.nix
 
-  print $"Ips were written for a machine count of: ($eipRecords | length)"
-  if $nodeCount != ($eipRecords | length | into string) {
+  let machineCount = ($ipTable | length)
+  let nonNixosMachineCount = ($nonNixosMachines | length)
+
+  print $"Processing ip information for ($nixosNodeCount) nixos machine(s) and ($nonNixosMachineCount) non-nixos machine(s)..."
+  print $"Ips were written for a machine count of: ($machineCount)"
+
+  if $nixosNodeCount != ($machineCount | $in - $nonNixosMachineCount | into string) {
     print "\n"
-    print $"(ansi bg_red)WARNING:(ansi reset) There are ($nodeCount) nixos machine configurations but ($eipRecords | length) ip record sets were written."
+    print $"(ansi bg_red)WARNING:(ansi reset) There are ($nixosNodeCount) nixos machine configurations but ($machineCount | $in - $nonNixosMachineCount) ip nixos record sets were written."
     print "\n"
   }
 
