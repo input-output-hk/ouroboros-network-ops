@@ -79,13 +79,6 @@
         bookRelayMultivalueDns = null;
         groupRelayMultivalueDns = "mainnet1-node.${infra.aws.domain}";
       };
-
-      ignite1 = {
-        groupPrefix = "ignite1-";
-        meta.environmentName = "mainnet";
-        bookRelayMultivalueDns = null;
-        groupRelayMultivalueDns = "ignite1.${infra.aws.domain}";
-      };
     };
   };
 }
