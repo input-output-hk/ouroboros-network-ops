@@ -14,7 +14,7 @@ in
       # Region defs:
       au.aws.region = "ap-southeast-2";
       br.aws.region = "sa-east-1";
-      # eu1.aws.region = "eu-central-1";
+      eu1.aws.region = "eu-central-1";
       eu3.aws.region = "eu-west-3";
       jp.aws.region = "ap-northeast-1";
       sa.aws.region = "af-south-1";
@@ -25,7 +25,7 @@ in
       # Instance defs:
       # t3a-small.aws.instance.instance_type = "t3a.small";
       m6i-2xlarge.aws.instance.instance_type = "m6i.2xlarge";
-      c8i-16xlarge.aws.instance.instance_type = "c8i.16xlarge";
+      # c8i-16xlarge.aws.instance.instance_type = "c8i.16xlarge";
 
       # Helper fns:
       ebs = size: {aws.instance.root_block_device.volume_size = mkDefault size;};
@@ -238,7 +238,7 @@ in
             # Handle when cardano-parts isn't fully initialized (new machines)
             hasCardanoParts = config.flake ? cardano-parts && config.flake.cardano-parts ? aws;
           in
-           recursiveUpdate acc (
+            recursiveUpdate acc (
               optionalAttrs hasCardanoParts {
                 ${node} = {
                   nodeResources = {
@@ -273,6 +273,8 @@ in
       # Mainnet group
       mainnet1-rel-au-1 = {imports = [au m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoAu];};
       mainnet1-rel-br-1 = {imports = [br m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoBr];};
+      mainnet1-rel-eu1-1 = {imports = [eu1 m6i-2xlarge (ebs 300) (group "mainnet1") node rel amiZfs];};
+      mainnet1-rel-eu1-2 = {imports = [eu1 m6i-2xlarge (ebs 300) (group "mainnet1") node rel amiZfs];};
       mainnet1-rel-eu3-1 = {imports = [eu3 m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoEu3];};
       mainnet1-rel-jp-1 = {imports = [jp m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoJp];};
       mainnet1-rel-sa-1 = {imports = [sa m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoSa];};
