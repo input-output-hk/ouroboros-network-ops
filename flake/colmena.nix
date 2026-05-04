@@ -29,7 +29,7 @@ in
 
       # Helper fns:
       ebs = size: {aws.instance.root_block_device.volume_size = mkDefault size;};
-
+      # noBPerf = {services.blockperf.enable = false;};
       # ebsIops = iops: {aws.instance.root_block_device.iops = mkDefault iops;};
       # ebsTp = tp: {aws.instance.root_block_device.throughput = mkDefault tp;};
       # ebsHighPerf = recursiveUpdate (ebsIops 10000) (ebsTp 1000);
@@ -234,22 +234,27 @@ in
           foldl'
           (acc: node: let
             instanceType = node: nixosConfigurations.${node}.config.aws.instance.instance_type;
+
+            # Handle when cardano-parts isn't fully initialized (new machines)
+            hasCardanoParts = config.flake ? cardano-parts && config.flake.cardano-parts ? aws;
           in
-            recursiveUpdate acc {
-              ${node} = {
-                nodeResources = {
-                  inherit
-                    (config.flake.cardano-parts.aws.ec2.spec.${instanceType node})
-                    provider
-                    coreCount
-                    cpuCount
-                    memMiB
-                    nodeType
-                    threadsPerCore
-                    ;
+           recursiveUpdate acc (
+              optionalAttrs hasCardanoParts {
+                ${node} = {
+                  nodeResources = {
+                    inherit
+                      (config.flake.cardano-parts.aws.ec2.spec.${instanceType node})
+                      provider
+                      coreCount
+                      cpuCount
+                      memMiB
+                      nodeType
+                      threadsPerCore
+                      ;
+                  };
                 };
-              };
-            })
+              }
+            ))
           {} (attrNames nixosConfigurations);
       };
 
