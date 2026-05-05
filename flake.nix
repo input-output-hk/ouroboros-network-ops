@@ -12,12 +12,7 @@
     cardano-parts.url = "github:input-output-hk/cardano-parts/v2026-05-01";
 
     # Local pins for additional customization -- old examples are commented:
-    # cardano-node-tx-submission.url = "github:IntersectMBO/cardano-node/coot/tx-submission-10.5";
-    # cardano-node-srv.url = "github:IntersectMBO/cardano-node/mwojtowicz/srv-test";
-    # cardano-node-readbuffer-ig-turbo.url = "github:IntersectMBO/cardano-node/karknu/10_3_0_ig_readbuffer";
-    # cardano-node-10-3.url = "github:IntersectMBO/cardano-node/10.3.0";
-    # cardano-node-10-3-readbuffer.url = "github:IntersectMBO/cardano-node/karknu/10_3_0_read_buffer";
-    # cardano-node-cardano-diffusion.url = "github:IntersectMBO/cardano-node/coot/cardano-diffusion-integration";
+    cardano-node-tx-undecision.url = "github:IntersectMBO/cardano-node/karknu/tx_undecision";
 
     # Earliest iohk-nix that supports nodeConfigLegacy attribute used in newer cardano-node-group modules
     # Note that the minNodeVersion at this pin is `10.4.0` for recognition of the `LedgerDb` node config key.

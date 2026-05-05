@@ -41,17 +41,18 @@ in
       # disableAlertCount.cardano-parts.perNode.meta.enableAlertCount = false;
       # delete.aws.instance.count = 0;
 
-      # mkCustomNode = flakeInput: iohkNixInput:
-      #   node
-      #   // {
-      #     cardano-parts.perNode = {
-      #       lib.cardanoLib = config.flake.cardano-parts.pkgs.special.cardanoLibCustom inputs.${iohkNixInput} "x86_64-linux";
-      #       pkgs = {inherit (inputs.${flakeInput}.packages.x86_64-linux) cardano-cli cardano-node cardano-submit-api;};
-      #     };
-      #   };
+      mkCustomNode = flakeInput: iohkNixInput:
+        node
+        // {
+          cardano-parts.perNode = {
+            lib.cardanoLib = mkIf (iohkNixInput != null) (config.flake.cardano-parts.pkgs.special.cardanoLibCustom inputs.${iohkNixInput} "x86_64-linux");
+            pkgs = {inherit (inputs.${flakeInput}.packages.x86_64-linux) cardano-cli cardano-node cardano-submit-api;};
+          };
+        };
 
       # Example use of mkCustomNode:
       # node-tx-submission = mkCustomNode "cardano-node-tx-submission" "iohk-nix-10-4-0";
+      node-undecision = mkCustomNode "cardano-node-tx-undecision" null;
 
       # Cardano group assignments:
       group = name: {
@@ -97,7 +98,22 @@ in
       #     pre
       #   ];
       # };
-      #
+
+      unModsBase = {
+        services.cardano-node = {
+          extraNodeConfig = {
+            TraceMempool = true;
+            TraceTxCounters = true;
+            TraceTxInbound = true;
+          };
+          useLegacyTracing = true;
+        };
+      };
+
+      unModsUndecision = {
+        services.cardano-node.extraNodeConfig.TxSubmissionLogicVersion = "TxSubmissionLogicV2";
+      };
+
       # Profiles
       # customRts = (nixos: let
       #   cfg = nixos.config.services.cardano-node;
@@ -273,8 +289,8 @@ in
       # Mainnet group
       mainnet1-rel-au-1 = {imports = [au m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoAu];};
       mainnet1-rel-br-1 = {imports = [br m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoBr];};
-      mainnet1-rel-eu1-1 = {imports = [eu1 m6i-2xlarge (ebs 300) (group "mainnet1") node rel amiZfs];};
-      mainnet1-rel-eu1-2 = {imports = [eu1 m6i-2xlarge (ebs 300) (group "mainnet1") node rel amiZfs];};
+      mainnet1-rel-eu1-1 = {imports = [eu1 m6i-2xlarge (ebs 300) (group "mainnet1") node rel unModsBase amiZfs];};
+      mainnet1-rel-eu1-2 = {imports = [eu1 m6i-2xlarge (ebs 300) (group "mainnet1") node-undecision rel unModsBase unModsUndecision amiZfs];};
       mainnet1-rel-eu3-1 = {imports = [eu3 m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoEu3];};
       mainnet1-rel-jp-1 = {imports = [jp m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoJp];};
       mainnet1-rel-sa-1 = {imports = [sa m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoSa];};
