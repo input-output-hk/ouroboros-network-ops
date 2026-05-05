@@ -137,6 +137,7 @@ with lib; let
   groupMultivalueDnsAttrs = mkMultivalueDnsAttrs "groupRelayMultivalueDns" groupMultivalueDnsList;
 
   mkCustomRoute53Records = import ./cluster/route53.nix-import;
+  nonNixosMachines = import ./cluster/non-nixos-machines.nix-import {inherit defaultTags;};
 
   sensitiveString = {
     type = "string";
@@ -225,24 +226,7 @@ in {
                 ];
               };
             })
-            // {
-              # Debian 13 (Trixie) AMI for ignite1-eu3-1
-              debian_13_eu_west_3 = {
-                provider = "aws.eu_west_3";
-                most_recent = true;
-                owners = ["136693071363"]; # Debian official AWS account
-                filter = [
-                  {
-                    name = "name";
-                    values = ["debian-13-amd64-*"];
-                  }
-                  {
-                    name = "architecture";
-                    values = ["x86_64"];
-                  }
-                ];
-              };
-            };
+            // nonNixosMachines.data.aws_ami;
 
           # Ref: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html
           aws_availability_zones = mapRegions ({region, ...}: {
@@ -472,54 +456,7 @@ in {
                   ipv6_address_count = "\${data.aws_vpc.${underscore region}.ipv6_cidr_block == \"\" ? null : 1}";
                 }
             )
-            # Standalone Debian instances (not managed by colmena/NixOS)
-            // {
-              ignite1-eu3-1 = {
-                provider = awsProviderFor "eu_west_3";
-                ami = "\${data.aws_ami.debian_13_eu_west_3.id}";
-                instance_type = "c8i.16xlarge";
-                iam_instance_profile = "\${aws_iam_instance_profile.ec2_profile.name}";
-                monitoring = true;
-                key_name = "\${aws_key_pair.bootstrap_eu_west_3[0].key_name}";
-                vpc_security_group_ids = ["\${aws_security_group.common_eu_west_3[0].id}"];
-                tags = {
-                  Name = "ignite1-eu3-1";
-                  environment = "mainnet";
-                  group = "ignite1";
-                };
-                root_block_device = {
-                  volume_size = 300;
-                  volume_type = "gp3";
-                  iops = 3000;
-                  throughput = 125;
-                  delete_on_termination = true;
-                  tags =
-                    defaultTags
-                    // {
-                      Name = "ignite1-eu3-1";
-                      environment = "mainnet";
-                      group = "ignite1";
-                    };
-                };
-                metadata_options = {
-                  http_endpoint = "enabled";
-                  http_put_response_hop_limit = 2;
-                  http_tokens = "required";
-                };
-                ipv6_address_count = "\${data.aws_vpc.eu_west_3.ipv6_cidr_block == \"\" ? null : 1}";
-                user_data = ''
-                  #!/bin/bash
-                  set -euo pipefail
-                  apt-get update -y
-                  apt-get install -y wget
-                  wget -q https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb
-                  dpkg -i amazon-ssm-agent.deb
-                  systemctl enable amazon-ssm-agent
-                  systemctl start amazon-ssm-agent
-                '';
-                lifecycle = [{ignore_changes = ["ami" "user_data"];}];
-              };
-            };
+            // nonNixosMachines.resource.aws_instance;
 
           aws_iam_instance_profile.ec2_profile = {
             name = "ec2Profile";
@@ -617,19 +554,7 @@ in {
               # Provider level `default_tags` are automatically inherited.
               tags = {Name = name;} // node.aws.instance.tags or {};
             })
-            // {
-              ignite1-eu3-1 = {
-                provider = awsProviderFor "eu_west_3";
-                instance = "\${aws_instance.ignite1-eu3-1.id}";
-                tags =
-                  defaultTags
-                  // {
-                    Name = "ignite1-eu3-1";
-                    environment = "mainnet";
-                    group = "ignite1";
-                  };
-              };
-            };
+            // nonNixosMachines.resource.aws_eip;
 
           aws_eip_association = mapNodes (name: node: {
             inherit (node.aws.instance) count;
@@ -742,26 +667,7 @@ in {
             // mkMultivalueDnsResources bookMultivalueDnsAttrs
             // mkMultivalueDnsResources groupMultivalueDnsAttrs
             // mkCustomRoute53Records
-            # DNS records for standalone Debian ignite1-eu3-1
-            // {
-              "ignite1-eu3-1" = {
-                zone_id = "\${data.aws_route53_zone.selected.zone_id}";
-                name = "ignite1-eu3-1.\${data.aws_route53_zone.selected.name}";
-                type = "A";
-                ttl = "300";
-                records = ["\${aws_eip.ignite1-eu3-1.public_ip}"];
-                allow_overwrite = true;
-              };
-              "ignite1-eu3-1-AAAA" = {
-                count = "1";
-                zone_id = "\${data.aws_route53_zone.selected.zone_id}";
-                name = "ignite1-eu3-1.\${data.aws_route53_zone.selected.name}";
-                type = "AAAA";
-                ttl = "300";
-                records = ["\${aws_instance.ignite1-eu3-1.ipv6_addresses[0]}"];
-                allow_overwrite = true;
-              };
-            };
+            // nonNixosMachines.resource.aws_route53_record;
 
           # This `.ssh_config` file output format is expected by just recipes
           # such as `list-machines` in order to be parsable.
@@ -785,21 +691,7 @@ in {
                   '')
                   (attrNames nodes))
               }
-              Host ignite1-eu3-1
-                HostName ''${aws_instance.ignite1-eu3-1.id}
-                ProxyCommand sh -c "aws --region eu-west-3 ssm start-session --target %h --document-name AWS-StartSSHSession --parameters 'portNumber=%p'"
-                Tag c8i.16xlarge
-                User admin
-
-              Host ignite1-eu3-1.ipv4
-                HostName ''${aws_eip.ignite1-eu3-1.public_ip}
-                Tag eu-west-3
-                User admin
-
-              Host ignite1-eu3-1.ipv6
-                HostName ''${length(aws_instance.ignite1-eu3-1.ipv6_addresses) > 0 ? aws_instance.ignite1-eu3-1.ipv6_addresses[0] : "unavailable.ipv6"}
-                User admin
-
+              ${nonNixosMachines.sshConfig}
               Host *
                 User root
                 UserKnownHostsFile /dev/null
