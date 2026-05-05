@@ -6,10 +6,10 @@
     nixpkgs-unstable.follows = "cardano-parts/nixpkgs-unstable";
     flake-parts.follows = "cardano-parts/flake-parts";
 
-    # Using cardano-parts release v2026-05-01 as the last completed
-    # cardano-parts migration. Currently `cardano-parts` gives us access to
+    # Using just after cardano-parts release v2026-05-01 on next-2026-05-04 for
+    # libblst flake input pin fix. Currently `cardano-parts` gives us access to
     # cardano-node `10.7.1` for both release and pre-release.
-    cardano-parts.url = "github:input-output-hk/cardano-parts/v2026-05-01";
+    cardano-parts.url = "github:input-output-hk/cardano-parts/next-2026-05-04";
 
     # Local pins for additional customization -- old examples are commented:
     cardano-node-tx-undecision.url = "github:IntersectMBO/cardano-node/karknu/tx_undecision";
