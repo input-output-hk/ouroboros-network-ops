@@ -99,15 +99,39 @@ in
       #   ];
       # };
 
+      node-10-7-1 = let
+        caPkgs = inputs.cardano-parts.inputs.capkgs.packages.x86_64-linux;
+        pkg = name: caPkgs."${name}-input-output-hk-cardano-node-10-7-1-045bc18";
+      in {
+        imports = [
+          node
+          {
+            cardano-parts.perNode.pkgs = {
+              cardano-cli = mkForce (pkg "cardano-cli");
+              cardano-node = mkForce ((pkg "cardano-node") // {version = "10.7.1";});
+              cardano-submit-api = mkForce (pkg "cardano-submit-api");
+            };
+          }
+        ];
+      };
+
       unModsBase = {
-        services.cardano-node = {
-          extraNodeConfig = {
-            TraceMempool = true;
-            TraceTxCounters = true;
-            TraceTxInbound = true;
-          };
-          useLegacyTracing = true;
-        };
+        imports = [
+          {
+            services.cardano-node = {
+              # Add an extra ~2 GB of RAM to heap and systemd max.
+              # Standard calc is 79% total RAM to heap allocation.
+              totalMaxHeapSizeMiB = (26508 / 1.024) + 2048;
+
+              extraNodeConfig = {
+                TraceMempool = true;
+                TraceTxCounters = true;
+                TraceTxInbound = true;
+              };
+              useLegacyTracing = true;
+            };
+          }
+        ];
       };
 
       unModsUndecision = {
@@ -289,7 +313,7 @@ in
       # Mainnet group
       mainnet1-rel-au-1 = {imports = [au m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoAu];};
       mainnet1-rel-br-1 = {imports = [br m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoBr];};
-      mainnet1-rel-eu1-1 = {imports = [eu1 m6i-2xlarge (ebs 300) (group "mainnet1") node rel unModsBase amiZfs];};
+      mainnet1-rel-eu1-1 = {imports = [eu1 m6i-2xlarge (ebs 300) (group "mainnet1") node-10-7-1 rel unModsBase amiZfs];};
       mainnet1-rel-eu1-2 = {imports = [eu1 m6i-2xlarge (ebs 300) (group "mainnet1") node-undecision rel unModsBase unModsUndecision amiZfs];};
       mainnet1-rel-eu3-1 = {imports = [eu3 m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoEu3];};
       mainnet1-rel-jp-1 = {imports = [jp m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoJp];};
