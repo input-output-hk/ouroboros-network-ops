@@ -1,6 +1,5 @@
 {
   inputs,
-  self,
   lib,
   config,
   ...
@@ -116,7 +115,7 @@ with lib; let
                 {
                   name = "${nodeName}-${md5 dns}-AAAA";
                   value = {
-                    count = "\${length(aws_instance.${nodeName}[0].ipv6_addresses) > 0 ? 1 : 0}";
+                    count = "\${data.aws_vpc.${underscore nodes.${nodeName}.aws.region}.ipv6_cidr_block != \"\" ? 1 : 0}";
                     zone_id = "\${data.aws_route53_zone.selected.zone_id}";
                     name = dns;
                     type = "AAAA";
@@ -138,6 +137,7 @@ with lib; let
   groupMultivalueDnsAttrs = mkMultivalueDnsAttrs "groupRelayMultivalueDns" groupMultivalueDnsList;
 
   mkCustomRoute53Records = import ./cluster/route53.nix-import;
+  nonNixosMachines = import ./cluster/non-nixos-machines.nix-import {inherit defaultTags;};
 
   sensitiveString = {
     type = "string";
@@ -204,24 +204,29 @@ in {
           aws_region.current = {};
           aws_route53_zone.selected.name = "${cluster.domain}.";
 
-          aws_ami = mapRegions ({region, ...}: {
-            "nixos_${system}_${region}" = {
-              owners = ["427812963091"];
-              most_recent = true;
-              provider = "aws.${region}";
-
-              filter = [
-                {
-                  name = "name";
-                  values = ["nixos/25.05*"];
-                }
-                {
-                  name = "architecture";
-                  values = [(builtins.head (splitString "-" system))];
-                }
-              ];
-            };
-          });
+          aws_ami =
+            mapRegions ({region, ...}: {
+              "nixos_${system}_${underscore region}" = {
+                provider = "aws.${region}";
+                most_recent = true;
+                owners = [infra.aws.orgId];
+                filter = [
+                  {
+                    name = "name";
+                    values = ["NixOS/*"];
+                  }
+                  {
+                    name = "tag:system";
+                    values = [system];
+                  }
+                  {
+                    name = "tag:version";
+                    values = ["25.11.*"];
+                  }
+                ];
+              };
+            })
+            // nonNixosMachines.data.aws_ami;
 
           # Ref: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html
           aws_availability_zones = mapRegions ({region, ...}: {
@@ -394,72 +399,64 @@ in {
               }
           );
 
-          aws_instance = mapNodes (
-            name: node: let
-              inherit (node.aws) region;
-            in
-              {
-                inherit (node.aws.instance) count instance_type;
+          aws_instance =
+            mapNodes (
+              name: node: let
+                inherit (node.aws) region;
+              in
+                {
+                  inherit (node.aws.instance) count instance_type;
 
-                provider = awsProviderFor region;
-                ami = "\${data.aws_ami.nixos_${system}_${underscore region}.id}";
-                iam_instance_profile = "\${aws_iam_instance_profile.ec2_profile.name}";
+                  provider = awsProviderFor region;
+                  ami =
+                    node.aws.instance.ami or "\${data.aws_ami.nixos_${
+                      with node.nixpkgs; crossSystem.system or localSystem.system
+                    }_${underscore region}.id}";
+                  iam_instance_profile = "\${aws_iam_instance_profile.ec2_profile.name}";
 
-                monitoring = true;
-                key_name = "\${aws_key_pair.bootstrap_${underscore region}[0].key_name}";
-                vpc_security_group_ids = [
-                  "\${aws_security_group.common_${underscore region}[0].id}"
-                ];
+                  monitoring = true;
+                  key_name = "\${aws_key_pair.bootstrap_${underscore region}[0].key_name}";
+                  vpc_security_group_ids = [
+                    "\${aws_security_group.common_${underscore region}[0].id}"
+                  ];
 
-                # Provider level `default_tags` are automatically inherited at
-                # the instance level.  Instance specific tags defined in
-                # flake/colmena.nix are merged.
-                tags = {Name = name;} // node.aws.instance.tags or {};
+                  # Provider level `default_tags` are automatically inherited at
+                  # the instance level.  Instance specific tags defined in
+                  # flake/colmena.nix are merged.
+                  tags = {Name = name;} // node.aws.instance.tags or {};
 
-                root_block_device = {
-                  inherit (node.aws.instance.root_block_device) volume_size;
-                  volume_type = "gp3";
-                  iops = node.aws.instance.root_block_device.iops or 3000;
-                  throughput = node.aws.instance.root_block_device.throughput or 125;
-                  delete_on_termination = true;
+                  root_block_device = {
+                    inherit (node.aws.instance.root_block_device) volume_size;
+                    volume_type = "gp3";
+                    iops = node.aws.instance.root_block_device.iops or 3000;
+                    throughput = node.aws.instance.root_block_device.throughput or 125;
+                    delete_on_termination = true;
 
-                  # Default tags are not inherited to the volume level automatically.
-                  tags = defaultTags // {Name = name;} // node.aws.instance.tags or {};
-                };
+                    # Default tags are not inherited to the volume level automatically.
+                    tags = defaultTags // {Name = name;} // node.aws.instance.tags or {};
+                  };
 
-                metadata_options = {
-                  http_endpoint = "enabled";
-                  http_put_response_hop_limit = 2;
-                  http_tokens = "optional";
-                };
+                  metadata_options = {
+                    http_endpoint = "enabled";
+                    http_put_response_hop_limit = 2;
+                    http_tokens = "required";
+                  };
 
-                lifecycle = [{ignore_changes = ["ami" "user_data"];}];
-              }
-              // optionalAttrs (node.aws.instance ? availability_zone) {
-                inherit (node.aws.instance) availability_zone;
-              }
-              # Use nix declared ipv6 if available.  This should only be used
-              # for public machines where ip exposure in committed code is
-              # acceptable and a vanity address is needed. Ie: don't use this
-              # for bps.
-              #
-              # NOTE: As of aws provider 5.66.0, switching from
-              # ipv6_address_count to ipv6_addresses will force an instance
-              # replacement. If a self-declared ipv6 is required but
-              # destroying and re-creating instances to change ipv6 is not
-              # acceptable, then until the bug is fixed, continue using
-              # auto-assignment only, manually change the ipv6 in the console
-              # ui, and run tf apply to update state.
-              #
-              # Ref: https://github.com/hashicorp/terraform-provider-aws/issues/39433
-              // optionalAttrs (node.aws.instance ? ipv6) {
-                ipv6_addresses = "\${data.aws_vpc.${underscore region}.ipv6_cidr_block == \"\" ? null : tolist([\"${node.aws.instance.ipv6}\"])}";
-              }
-              # Otherwise use aws ipv6 auto-assignment
-              // optionalAttrs (!(node.aws.instance ? ipv6)) {
-                ipv6_address_count = "\${data.aws_vpc.${underscore region}.ipv6_cidr_block == \"\" ? null : 1}";
-              }
-          );
+                  lifecycle = [{ignore_changes = ["ami" "user_data"];}];
+                }
+                // optionalAttrs (node.aws.instance ? availability_zone) {
+                  inherit (node.aws.instance) availability_zone;
+                }
+                # Use declared ipv6 if set
+                // optionalAttrs (node.aws.instance ? ipv6) {
+                  ipv6_addresses = "\${data.aws_vpc.${underscore region}.ipv6_cidr_block == \"\" ? null : tolist([\"${node.aws.instance.ipv6}\"])}";
+                }
+                # Otherwise use aws ipv6 auto-assignment
+                // optionalAttrs (!(node.aws.instance ? ipv6)) {
+                  ipv6_address_count = "\${data.aws_vpc.${underscore region}.ipv6_cidr_block == \"\" ? null : 1}";
+                }
+            )
+            // nonNixosMachines.resource.aws_instance;
 
           aws_iam_instance_profile.ec2_profile = {
             name = "ec2Profile";
@@ -548,14 +545,16 @@ in {
             };
           });
 
-          aws_eip = mapNodes (name: node: {
-            inherit (node.aws.instance) count;
-            provider = awsProviderFor node.aws.region;
-            instance = "\${aws_instance.${name}[0].id}";
+          aws_eip =
+            mapNodes (name: node: {
+              inherit (node.aws.instance) count;
+              provider = awsProviderFor node.aws.region;
+              instance = "\${aws_instance.${name}[0].id}";
 
-            # Provider level `default_tags` are automatically inherited.
-            tags = {Name = name;} // node.aws.instance.tags or {};
-          });
+              # Provider level `default_tags` are automatically inherited.
+              tags = {Name = name;} // node.aws.instance.tags or {};
+            })
+            // nonNixosMachines.resource.aws_eip;
 
           aws_eip_association = mapNodes (name: node: {
             inherit (node.aws.instance) count;
@@ -650,13 +649,11 @@ in {
             )
             dnsEnabledNodes
             // mapAttrs' (
-              nodeName: _:
+              nodeName: node:
                 nameValuePair "${nodeName}-AAAA" {
-                  # When transitioning into ipv6 dual stack and some instances still have ipv4 only, include the following line.
-                  # count = "\${length(aws_instance.${nodeName}[0].ipv6_addresses) > 0 ? 1 : 0}";
-                  #
-                  # When migration to ipv4/ipv6 dual stack is complete, comment the above line and uncomment the following line.
-                  count = "1";
+                  # When tofu applying a new aws org, tofu will need to be
+                  # applied twice to create the ipv6 dns record.
+                  count = "\${data.aws_vpc.${underscore node.aws.region}.ipv6_cidr_block != \"\" ? 1 : 0}";
 
                   zone_id = "\${data.aws_route53_zone.selected.zone_id}";
                   name = "${nodeName}.\${data.aws_route53_zone.selected.name}";
@@ -669,7 +666,8 @@ in {
             dnsEnabledNodes
             // mkMultivalueDnsResources bookMultivalueDnsAttrs
             // mkMultivalueDnsResources groupMultivalueDnsAttrs
-            // mkCustomRoute53Records;
+            // mkCustomRoute53Records
+            // nonNixosMachines.resource.aws_route53_record;
 
           # This `.ssh_config` file output format is expected by just recipes
           # such as `list-machines` in order to be parsable.
@@ -677,13 +675,6 @@ in {
             filename = "\${path.module}/.ssh_config";
             file_permission = "0600";
             content = ''
-              Host *
-                User root
-                UserKnownHostsFile /dev/null
-                StrictHostKeyChecking no
-                ServerAliveCountMax 2
-                ServerAliveInterval 60
-
               ${
                 concatStringsSep "\n" (map (name: ''
                     Host ${name}
@@ -700,6 +691,13 @@ in {
                   '')
                   (attrNames nodes))
               }
+              ${nonNixosMachines.sshConfig}
+              Host *
+                User root
+                UserKnownHostsFile /dev/null
+                StrictHostKeyChecking no
+                ServerAliveCountMax 2
+                ServerAliveInterval 60
             '';
           };
         };

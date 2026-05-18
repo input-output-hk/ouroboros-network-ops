@@ -13,8 +13,9 @@ null := ""
 stateDir := "STATEDIR=" + statePrefix / "$(basename $(git remote get-url origin))"
 statePrefix := "~/.local/share"
 
-# To skip ptrace permission modification prompting, env var AUTO_SET_ENV can be set to `false`
-autoSetEnv := env_var_or_default("AUTO_SET_ENV","unset")
+# Machines provisioned directly by tofu, not managed by colmena/NixOS
+# The list structure should be like: ["machine-a", "machine-b"] with optional comma delimiter
+nonNixosMachines := '["ignite1-eu3-1"]'
 
 # Environment variables can be used to change the default template diff and path comparison sources.
 # If TEMPLATE_PATH is set, it will have precedence, otherwise git url will be used for source templates.
@@ -36,8 +37,9 @@ checkEnv := '''
 checkEnvWithoutOverride := '''
   ENV="${1:-}"
 
-  if ! [[ "$ENV" =~ ^mainnet$|^preprod$|^preview$|^demo$ ]]; then
-    echo "Error: only node environments for demo, mainnet, preprod and preview are supported"
+  if ! [[ "$ENV" =~ ^mainnet$|^preprod$|^preview$|^dijkstra$|^demo$|^leios$|^sanchonet$ ]]; then
+    >&2 echo "Error: only node environments for demo, dijkstra, leios, mainnet, preprod, preview and sanchonet are supported"
+    >&2 echo "Usage: just set-default-cardano-env <env>"
     exit 1
   fi
 
@@ -47,6 +49,12 @@ checkEnvWithoutOverride := '''
     MAGIC="1"
   elif [ "$ENV" = "preview" ]; then
     MAGIC="2"
+  elif [ "$ENV" = "sanchonet" ]; then
+    MAGIC="4"
+  elif [ "$ENV" = "dijkstra" ]; then
+    MAGIC="6"
+  elif [ "$ENV" = "leios" ]; then
+    MAGIC="164"
   elif [ "$ENV" = "demo" ]; then
     MAGIC="42"
   fi
@@ -97,6 +105,8 @@ checkSshConfig := '''
   if $runCheck {
     print "Checking nixosCfg, sshCfg, and ipModuleCfg for consistency..."
 
+    let nonNixosMachines = ''' + nonNixosMachines + '''
+
     let nixosCfg = (nix eval --json ".#nixosConfigurations" --apply "builtins.attrNames" | from json)
 
     let sshCfg = (
@@ -130,23 +140,27 @@ checkSshConfig := '''
       | collect
       | parse --regex `(?ms)(.*)^  };\nin {.*`
       | get capture0
-      | parse --regex `(?m)    (.*) = {$\n\s+privateIpv4 = \"(.*)";\n\s+publicIpv4 = \"(.*)";\n\s+publicIpv6 = \"(.*)";\n\s+};`
-      | rename machine privIpv4 pubIpv4 pubIpv6
-      | update pubIpv6 { $in | if $in == "" { null } else { $in } }
+      | parse --regex `(?m)    (?<machine>.*) = {$\n(\s+privateIpv4 = \"(?<privIpv4>.*)";\n)?(\s+publicIpv4 = \"(?<pubIpv4>.*)";\n)?(\s+publicIpv6 = \"(?<pubIpv6>.*)";\n)?\s+};`
+      | select machine privIpv4 pubIpv4 pubIpv6
+      | update cells { if ($in | is-empty) { null } else { $in } }
+      | where {|r| ($nonNixosMachines | where {|m| $m == $r.machine} | is-empty) }
       | sort-by machine
     } else {
       []
     }
 
+    let ssh4NixosCfg = ($ssh4Cfg | where {|r| ($nonNixosMachines | where {|m| $m == $r.machine} | is-empty) })
+    let ssh6NixosCfg = ($ssh6Cfg | where {|r| ($nonNixosMachines | where {|m| $m == $r.machine} | is-empty) })
+
     let comparisons = [
       {
         label: "NixosConfigurations vs SSH hosts",
-        result: (list-diff $nixosCfg ($ssh4Cfg | get machine) onlyInNixosCfg onlyInSshCfg),
+        result: (list-diff $nixosCfg ($ssh4NixosCfg | get machine) onlyInNixosCfg onlyInSshCfg),
         hint: "just save-ssh-config or just tf apply"
       }
       {
         label: "SSH IPv4 vs SSH IPv6 machines",
-        result: (list-diff ($ssh4Cfg | get machine) ($ssh6Cfg | get machine) onlyInSsh4Cfg onlyInSsh6Cfg),
+        result: (list-diff ($ssh4NixosCfg | get machine) ($ssh6NixosCfg | get machine) onlyInSsh4Cfg onlyInSsh6Cfg),
         hint: "just save-ssh-config or just tf apply"
       }
       {
@@ -159,14 +173,14 @@ checkSshConfig := '''
       {
         label: "SSH public IPv4 vs IP module IPv4 values",
         result: (if $hasIpModule {
-          list-diff ($ssh4Cfg | get pubIpv4) ($moduleIps | get pubIpv4) onlyInSshCfg onlyInIpsModuleCfg
+          list-diff ($ssh4NixosCfg | get pubIpv4) ($moduleIps | get pubIpv4) onlyInSshCfg onlyInIpsModuleCfg
         } else {[]}),
         hint: "just update-ips"
       }
       {
         label: "SSH public IPv6 vs IP module IPv6 values",
         result: (if $hasIpModule {
-          list-diff ($ssh6Cfg | get pubIpv6) ($moduleIps | get pubIpv6) onlyInSshCfg onlyInIpsModuleCfg
+          list-diff ($ssh6NixosCfg | get pubIpv6) ($moduleIps | get pubIpv6) onlyInSshCfg onlyInIpsModuleCfg
         } else {[]}),
         hint: "just update-ips"
       }
@@ -174,7 +188,7 @@ checkSshConfig := '''
 
     let inconsistent = (
       $comparisons
-      | filter {|comp| $comp.result | is-not-empty }
+      | where {|comp| $comp.result | is-not-empty}
     )
 
     $inconsistent | each {|comp|
@@ -243,7 +257,7 @@ apply-bootstrap *ARGS:
 
   [ -f .ssh_key ] || just save-bootstrap-ssh-key
 
-  sed '2i \ \ IdentityFile .ssh_key' .ssh_config > .ssh_config_bootstrap
+  sed '/^Host /a\  IdentityFile .ssh_key\n  IdentitiesOnly yes' .ssh_config > .ssh_config_bootstrap
   SSH_CONFIG_FILE=".ssh_config_bootstrap" just apply {{ARGS}}
   rm .ssh_config_bootstrap
 
@@ -300,13 +314,17 @@ cf STACKNAME:
 dbsync-prep ENV HOST ACCTS="501":
   #!/usr/bin/env bash
   set -euo pipefail
+  {{checkEnvWithoutOverride}}
+
   TMPFILE="/tmp/create-faucet-stake-keys-table-{{ENV}}.sql"
 
   echo "Creating stake key sql injection command for environment {{ENV}} (this will take a minute)..."
   NOMENU=true \
   scripts/setup-delegation-accounts.py \
     --print-only \
-    --wallet-mnemonic <(sops -d secrets/envs/{{ENV}}/utxo-keys/faucet.mnemonic) \
+    --testnet-magic "$MAGIC" \
+    --wallet-mnemonic <(sops -d "secrets/envs/{{ENV}}/utxo-keys/faucet.mnemonic") \
+    --signing-key-file <(sops -d "secrets/envs/{{ENV}}/utxo-keys/rich-utxo.skey") \
     --num-accounts {{ACCTS}} \
     > "$TMPFILE"
 
@@ -372,8 +390,8 @@ dedelegate-pools ENV *IDXS=null:
   set -euo pipefail
   {{checkEnvWithoutOverride}}
 
-  if ! [[ "$ENV" =~ ^preprod$|^preview$ ]]; then
-    echo "Error: only node environments for preprod and preview are supported"
+  if ! [[ "$ENV" =~ ^dijkstra$|^leios$|^preprod$|^preview$|^sanchonet$ ]]; then
+    echo "Error: only node environments for preprod, preview, dijkstra, leios and sanchonet are supported"
     exit 1
   fi
 
@@ -381,9 +399,10 @@ dedelegate-pools ENV *IDXS=null:
     echo "Dedelegation cannot be performed on the mainnet environment"
     exit 1
   fi
-  just set-default-cardano-env {{ENV}} "$MAGIC" "$PPID"
 
-  if [ "$(jq -re .syncProgress <<< "$(just query-tip {{ENV}})")" != "100.00" ]; then
+  source <(just set-default-cardano-env "{{ENV}}")
+
+  if [ "$(jq -re .syncProgress <<< "$(just query-tip "{{ENV}}")")" != "100.00" ]; then
     echo "Please wait until the local tip of environment {{ENV}} is 100.00 before dedelegation"
     exit 1
   fi
@@ -406,8 +425,8 @@ dedelegate-pools ENV *IDXS=null:
     echo "De-delegating index $i"
     NOMENU=true scripts/restore-delegation-accounts.py \
       --testnet-magic "$MAGIC" \
-      --signing-key-file <(just sops-decrypt-binary secrets/envs/{{ENV}}/utxo-keys/rich-utxo.skey) \
-      --wallet-mnemonic <(just sops-decrypt-binary secrets/envs/{{ENV}}/utxo-keys/faucet.mnemonic) \
+      --signing-key-file <(just sops-decrypt-binary "secrets/envs/{{ENV}}/utxo-keys/rich-utxo.skey") \
+      --wallet-mnemonic <(just sops-decrypt-binary "secrets/envs/{{ENV}}/utxo-keys/faucet.mnemonic") \
       --delegation-index "$i"
 
     TXID=$(eval "$CARDANO_CLI" latest transaction txid --tx-file tx-deleg-account-$i-restore.txsigned | jq -r .txhash)
@@ -473,7 +492,7 @@ list-machines:
     let sshJson = (safe-run { ^scj dump /dev/stdout -c .ssh_config } "scj failed.")
 
     let baseTable = ($nixosJson | from json | each { |it| default-row $it })
-    let sshTable = ($sshJson | from json | where {|e| $e | get -i HostName | is-not-empty } | reject -i ProxyCommand)
+    let sshTable = ($sshJson | from json | where {|e| $e | get -o HostName | is-not-empty } | reject -o ProxyCommand)
 
     let mergeTable = (
       $sshTable | reduce --fold $baseTable { |it, acc|
@@ -509,47 +528,32 @@ list-machines:
       | each { |r| { index: ($r.index + 1) } | merge $r.item }
   }
 
-# Check mimir required config
-mimir-alertmanager-bootstrap:
+# Copy a nix store path to a machine and pin it with a gc root
+nix-copy-to-machine MACHINE STORE_PATH:
   #!/usr/bin/env bash
   set -euo pipefail
-  echo "Enter the mimir admin username: "
-  read -s MIMIR_USER
-  echo
+  echo "Copying {{STORE_PATH}} to {{MACHINE}}..."
+  NIX_SSHOPTS="-F $(pwd)/.ssh_config" nix copy --to "ssh://{{MACHINE}}" "{{STORE_PATH}}"
+  echo "Creating GC root on {{MACHINE}}..."
+  just ssh {{MACHINE}} "nix-store --add-root /nix/var/nix/gcroots/$(basename {{STORE_PATH}}) --realise {{STORE_PATH}}"
+  echo "Done. Store path pinned on {{MACHINE}}."
 
-  echo "Enter the mimir admin token: "
-  read -s MIMIR_TOKEN
-  echo
-
-  echo "Enter the mimir base monitoring fqdn without the HTTPS:// scheme: "
-  read URL
-  echo
-
-  echo "Obtaining current mimir alertmanager config:"
-  echo "-----------"
-  mimirtool alertmanager get --address "https://$MIMIR_USER:$MIMIR_TOKEN@$URL/mimir" --id 1
-  echo "-----------"
-
-  echo
-  echo "If the output between the dashed lines above is blank, you may need to preload an initial alertmanager ruleset"
-  echo "for the mimir TF plugin to succeed, where the command to preload alertmanager is:"
-  echo
-  echo "mimirtool alertmanager load --address \"https://\$MIMIR_USER:\$MIMIR_TOKEN@$URL/mimir\" --id 1 alertmanager-bootstrap-config.yaml"
-  echo
-  echo "The contents of alertmanager-bootstrap-config.yaml can be:"
-  echo
-  echo "route:"
-  echo "  group_wait: 0s"
-  echo "  receiver: empty-receiver"
-  echo "receivers:"
-  echo "  - name: 'empty-receiver'"
+# Pin a path to the local nix store
+nix-store-pin PATH:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  echo "Adding {{PATH}} to the nix store..."
+  STORE_PATH=$(nix store add "{{PATH}}")
+  echo "Creating GC root..."
+  sudo nix-store --add-root "/nix/var/nix/gcroots/$(basename "$STORE_PATH")" --realise "$STORE_PATH"
+  echo "Done. Stored and pinned at: $STORE_PATH"
 
 # Query the tip of all running envs
 query-tip-all:
   #!/usr/bin/env bash
   set -euo pipefail
   QUERIED=0
-  for i in mainnet preprod preview demo; do
+  for i in mainnet preprod preview dijkstra demo leios sanchonet; do
     TIP=$(just query-tip $i 2>&1) && {
       echo "Environment: $i"
       echo "$TIP"
@@ -572,9 +576,9 @@ query-tip ENV TESTNET_MAGIC=null:
     CARDANO_CLI="cardano-cli"
   elif [ "${UNSTABLE:-}" = "true" ]; then
     CARDANO_CLI="cardano-cli-ng"
-  elif [[ "$ENV" =~ ^mainnet$|^preprod$|^preview$ ]]; then
+  elif [[ "$ENV" =~ ^mainnet$|^preprod$|^preview$|^leios$ ]]; then
     CARDANO_CLI="cardano-cli"
-  elif [[ "$ENV" =~ ^demo$ ]]; then
+  elif [[ "$ENV" =~ ^dijkstra$|^demo$|^sanchonet$ ]]; then
     CARDANO_CLI="cardano-cli-ng"
   fi
 
@@ -601,7 +605,7 @@ save-bulk-creds ENV COMMIT="HEAD":
   DATE=$(git show --no-patch --format=%cs {{COMMIT}})
   for i in 1 2 3; do
     sops --config /dev/null --input-type binary --output-type binary --decrypt \
-    <(git cat-file blob {{COMMIT}}:secrets/groups/{{ENV}}$i/no-deploy/bulk.creds.pools.json) \
+    <(git cat-file blob "{{COMMIT}}:secrets/groups/{{ENV}}$i/no-deploy/bulk.creds.pools.json") \
     | jq -r '.[]'
   done \
     | jq -s \
@@ -622,94 +626,31 @@ save-ssh-config:
   tofu workspace select -or-create cluster
   let tf = (tofu show -json | from json)
   let key = ($tf.values.root_module.resources | where type == local_file and name == ssh_config)
-  $key.values.content | to text | save --force .ssh_config
+  $key.values.content | (parse --regex '(?ms)(.*)\n').capture0 | to text | save --force .ssh_config
   chmod 0600 .ssh_config
 
-# Set the shell's default node env
-set-default-cardano-env ENV TESTNET_MAGIC=null PPID=null:
+# Set the shell's default node env - outputs export commands to stdout for sourcing
+set-default-cardano-env ENV TESTNET_MAGIC=null:
   #!/usr/bin/env bash
   set -euo pipefail
   {{checkEnv}}
   {{stateDir}}
+
   # The log and socket file may not exist immediately upon node startup, so only check for the pid file
   if ! [ -s "$STATEDIR/node-{{ENV}}.pid" ]; then
-    echo "Environment {{ENV}} does not appear to be running as $STATEDIR/node-{{ENV}}.pid does not exist"
+    >&2 echo "Error: Environment {{ENV}} does not appear to be running as $STATEDIR/node-{{ENV}}.pid does not exist"
     exit 1
   fi
 
-  echo "Linking: $(ln -sfv "$STATEDIR/node-{{ENV}}.socket" node.socket)"
-  echo "Linking: $(ln -sfv "$STATEDIR/node-{{ENV}}.log" node.log)"
-  echo
+  >&2 echo "Linking: $(ln -sfv "$STATEDIR/node-{{ENV}}.socket" node.socket)"
+  >&2 echo "Linking: $(ln -sfv "$STATEDIR/node-{{ENV}}.log" node.log)"
+  >&2 echo ""
+  >&2 echo "To set environment variables in your shell, run:"
+  >&2 echo "  source <(just set-default-cardano-env \"{{ENV}}\")"
 
-  if [ -n "{{PPID}}" ]; then
-    PARENTID="{{PPID}}"
-  else
-    PARENTID="$PPID"
-  fi
-
-  SHELLPID=$(cat /proc/$PARENTID/status | awk '/PPid/ {print $2}')
-  DEFAULT_PATH=$(pwd)/node.socket
-
-  echo "Updating shell env vars:"
-  echo "  CARDANO_NODE_SOCKET_PATH=$DEFAULT_PATH"
-  echo "  CARDANO_NODE_NETWORK_ID=$MAGIC"
-  echo "  TESTNET_MAGIC=$MAGIC"
-
-  # Ptrace permissions are no longer "classic" by default starting in nixpkgs 24.05
-  AUTO_SET_ENV={{autoSetEnv}}
-  if [ -f /proc/sys/kernel/yama/ptrace_scope ] && [ "$AUTO_SET_ENV" != "false" ]; then
-     if [ "$(cat /proc/sys/kernel/yama/ptrace_scope)" = "0" ]; then
-       AUTO_SET_ENV=true
-     else
-       echo
-       echo "For just scripts to automatically set cardano environment variables in bash and zsh shells, ptrace classic permission needs to be enabled."
-       echo "This requires sudo access and will persist ptrace classic permission until the next reboot by writing:"
-       echo "  echo 0 > /proc/sys/kernel/yama/ptrace_scope"
-       echo
-       read -p "Do you have sudo access and wish to proceed [yY]? " -n 1 -r
-       echo
-       if [[ $REPLY =~ ^[Yy]$ ]]; then
-         if sudo bash -c 'echo 0 > /proc/sys/kernel/yama/ptrace_scope'; then
-           echo "ptrace_scope classic permission successfully set."
-           AUTO_SET_ENV=true
-         else
-           echo "ptrace_scope classic permission change unsuccessful."
-         fi
-       fi
-     fi
-  fi
-
-  SH=$(cat /proc/$SHELLPID/comm)
-  if [[ "$SH" =~ bash$|zsh$ ]] && [ "$AUTO_SET_ENV" = "true" ]; then
-    # Modifying a parent shells env vars is generally not done
-    # This is a hacky way to accomplish it in bash and zsh
-    gdb -iex "set auto-load no" /proc/$SHELLPID/exe $SHELLPID <<END >/dev/null
-      call (int) setenv("CARDANO_NODE_SOCKET_PATH", "$DEFAULT_PATH", 1)
-      call (int) setenv("CARDANO_NODE_NETWORK_ID", "$MAGIC", 1)
-      call (int) setenv("TESTNET_MAGIC", "$MAGIC", 1)
-  END
-
-    # Zsh env vars get updated, but the shell doesn't reflect this
-    if [ "$SH" = "zsh" ]; then
-      echo
-      echo "Cardano env vars have been updated as seen by \`env\`, but zsh \`echo \$VAR\` will not reflect this."
-      echo "To sync zsh shell vars with env vars:"
-      echo "  source scripts/sync-env-vars.sh"
-    fi
-  else
-    echo
-    if ! [[ "$SH" =~ bash$|zsh$ ]]; then
-      echo "Unexpected shell: $SH"
-    fi
-
-    if [ "$AUTO_SET_ENV" != "true" ]; then
-      echo "ptrace_scope: classic permission not enabled"
-    fi
-    echo "The following vars will need to be manually exported, or the equivalent operation for your shell:"
-    echo "  export CARDANO_NODE_SOCKET_PATH=$DEFAULT_PATH"
-    echo "  export CARDANO_NODE_NETWORK_ID=$MAGIC"
-    echo "  export TESTNET_MAGIC=$MAGIC"
-  fi
+  echo "export CARDANO_NODE_SOCKET_PATH=\"$(pwd)/node.socket\""
+  echo "export CARDANO_NODE_NETWORK_ID=\"$MAGIC\""
+  echo "export TESTNET_MAGIC=\"$MAGIC\""
 
 # Show nix flake details
 show-flake *ARGS:
@@ -736,7 +677,7 @@ sops-decrypt-binary FILE:
 
   # Default to stdout decrypted output.
   # This supports the common use case of obtaining decrypted state for cmd arg input while leaving the encrypted file intact on disk.
-  sops --config "$(sops_config {{FILE}})" --input-type binary --output-type binary --decrypt {{FILE}}
+  sops --config "$(sops_config "{{FILE}}")" --input-type binary --output-type binary --decrypt "{{FILE}}"
 
 # Decrypt a file in place using .sops.yaml rules
 sops-decrypt-binary-in-place FILE:
@@ -745,7 +686,7 @@ sops-decrypt-binary-in-place FILE:
   {{sopsConfigSetup}}
   [ -n "${DEBUG:-}" ] && set -x
 
-  sops --config "$(sops_config {{FILE}})" --input-type binary --output-type binary --decrypt {{FILE}} | sponge {{FILE}}
+  sops --config "$(sops_config "{{FILE}}")" --input-type binary --output-type binary --decrypt "{{FILE}}" | sponge "{{FILE}}"
 
 # Encrypt a file in place using .sops.yaml rules
 sops-encrypt-binary FILE:
@@ -756,7 +697,7 @@ sops-encrypt-binary FILE:
 
   # Default to in-place encrypted output.
   # This supports the common use case of first time encrypting plaintext state for public storage, ex: git repo commit.
-  sops --config "$(sops_config {{FILE}})" --input-type binary --output-type binary --encrypt {{FILE}} | sponge {{FILE}}
+  sops --config "$(sops_config "{{FILE}}")" --input-type binary --output-type binary --encrypt "{{FILE}}" | sponge "{{FILE}}"
 
 # Rotate sops encryption using .sops.yaml rules
 sops-rotate-binary FILE:
@@ -767,8 +708,8 @@ sops-rotate-binary FILE:
 
   # Default to in-place encryption rotation.
   # This supports the common use case of rekeying, for example if recipient keys have changed.
-  just sops-decrypt-binary {{FILE}} | sponge {{FILE}}
-  just sops-encrypt-binary {{FILE}}
+  just sops-decrypt-binary "{{FILE}}" | sponge "{{FILE}}"
+  just sops-encrypt-binary "{{FILE}}"
 
 # Scp using repo ssh config
 scp *ARGS:
@@ -780,7 +721,7 @@ scp *ARGS:
 ssh HOSTNAME *ARGS:
   #!/usr/bin/env nu
   {{checkSshConfig}}
-  ssh -o LogLevel=ERROR -F .ssh_config {{HOSTNAME}} {{ARGS}}
+  ssh -o LogLevel=ERROR -F .ssh_config "{{HOSTNAME}}" {{ARGS}}
 
 # Generate example .ssh_config code
 ssh-config-example:
@@ -821,7 +762,7 @@ ssh-bootstrap HOSTNAME *ARGS:
   #!/usr/bin/env nu
   {{checkSshConfig}}
   {{checkSshKey}}
-  ssh -o LogLevel=ERROR -F .ssh_config -i .ssh_key {{HOSTNAME}} {{ARGS}}
+  ssh -o LogLevel=ERROR -o IdentitiesOnly=yes -F .ssh_config -i .ssh_key "{{HOSTNAME}}" {{ARGS}}
 
 # Ssh to all
 ssh-for-all *ARGS:
@@ -837,7 +778,7 @@ ssh-for-all *ARGS:
 
 # Ssh for select
 ssh-for-each HOSTNAMES *ARGS:
-  colmena exec --verbose --parallel 0 --on {{HOSTNAMES}} {{ARGS}}
+  colmena exec --verbose --parallel 0 --on "{{HOSTNAMES}}" {{ARGS}}
 
 # List machine id, ipv4, ipv6, name or region based on regex pattern
 ssh-list TYPE PATTERN:
@@ -891,19 +832,27 @@ start-node ENV:
   set -euo pipefail
   {{stateDir}}
 
-  if ! [[ "{{ENV}}" =~ ^mainnet$|^preprod$|^preview$ ]]; then
-    echo "Error: only node environments for mainnet, preprod, and preview are supported for start-node recipe"
+  if ! [[ "{{ENV}}" =~ ^mainnet$|^preprod$|^preview$|^dijkstra$|^leios$|^sanchonet$ ]]; then
+    echo "Error: only node environments for mainnet, preprod, preview, dijkstra, leios and sanchonet are supported for start-node recipe"
     exit 1
   fi
 
   # Stop any existing running local node env for a clean restart
-  just stop-node {{ENV}}
+  just stop-node "{{ENV}}"
   echo "Starting cardano-node for envrionment {{ENV}}"
   mkdir -p "$STATEDIR"
 
   if [[ "{{ENV}}" =~ ^mainnet$|^preprod$|^preview$ ]]; then
     UNSTABLE=false
     UNSTABLE_LIB=false
+    UNSTABLE_MITHRIL=false
+    USE_NODE_CONFIG_BP=false
+  elif [[ "{{ENV}}" == leios ]]; then
+    export CARDANO_NODE_SHELL_BIN="$(nix build -Lv github:IntersectMBO/cardano-node/leios-prototype#cardano-node --no-link --print-out-paths)/bin/cardano-node"
+    export USE_SHELL_BINS=true
+    export LEIOS_DB_PATH="$STATEDIR/db-leios/node/leios.db"
+    UNSTABLE=false
+    UNSTABLE_LIB=true
     UNSTABLE_MITHRIL=false
     USE_NODE_CONFIG_BP=false
   else
@@ -915,20 +864,23 @@ start-node ENV:
 
   # Set required entrypoint vars and run node in a new nohup background session
   ENVIRONMENT="{{ENV}}" \
-  UNSTABLE="$UNSTABLE" \
-  UNSTABLE_LIB="$UNSTABLE_LIB" \
-  UNSTABLE_MITHRIL="$UNSTABLE_MITHRIL" \
-  USE_NODE_CONFIG_BP="$USE_NODE_CONFIG_BP" \
-  DATA_DIR="$STATEDIR" \
-  SOCKET_PATH="$STATEDIR/node-{{ENV}}.socket" \
-  nohup setsid nix run .#run-cardano-node &> "$STATEDIR/node-{{ENV}}.log" & echo $! > "$STATEDIR/node-{{ENV}}.pid" &
-  just set-default-cardano-env {{ENV}} "" "$PPID"
+    UNSTABLE="$UNSTABLE" \
+    UNSTABLE_LIB="$UNSTABLE_LIB" \
+    UNSTABLE_MITHRIL="$UNSTABLE_MITHRIL" \
+    USE_NODE_CONFIG_BP="$USE_NODE_CONFIG_BP" \
+    DATA_DIR="$STATEDIR" \
+    SOCKET_PATH="$STATEDIR/node-{{ENV}}.socket" \
+    nohup setsid nix run .#run-cardano-node &> "$STATEDIR/node-{{ENV}}.log" & echo $! > "$STATEDIR/node-{{ENV}}.pid" &
+  echo "Node started for {{ENV}}"
+  echo ""
+  echo "Set up your shell environment with:"
+  echo "  source <(just set-default-cardano-env \"{{ENV}}\")"
 
 # Stop all local nodes
 stop-all:
   #!/usr/bin/env bash
   set -euo pipefail
-  for i in mainnet preprod preview demo; do
+  for i in mainnet preprod preview dijkstra demo leios sanchonet; do
     just stop-node $i
   done
 
@@ -1031,7 +983,7 @@ template-patch FILE:
   patch "{{FILE}}" < <(echo "$PATCH_FILE")
   git add -p "{{FILE}}"
 
-# Run tofu for cluster or grafana workspace
+# Run tofu for bootstrap, cluster or grafana workspace
 tofu *ARGS:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -1041,7 +993,7 @@ tofu *ARGS:
   SOPS=("sops" "--input-type" "binary" "--output-type" "binary" "--decrypt")
 
   read -r -a ARGS <<< "{{ARGS}}"
-  if [[ ${ARGS[0]} =~ cluster|grafana ]]; then
+  if [[ ${ARGS[0]} =~ bootstrap|cluster|grafana ]]; then
     WORKSPACE="${ARGS[0]}"
     ARGS=("${ARGS[@]:1}")
   else
@@ -1062,14 +1014,14 @@ tofu *ARGS:
   tofu "${ARGS[@]:0:1}" ${VAR_FILE:+-var-file=<("${SOPS[@]}" "$VAR_FILE")} "${ARGS[@]:1}"
 
 # Truncate a select chain after slot
-truncate-chain ENV SLOT:
+truncate-chain ENV SLOT LEDGER_TYPE="in-mem":
   #!/usr/bin/env bash
   set -euo pipefail
   [ -n "${DEBUG:-}" ] && set -x
   {{stateDir}}
 
-  if ! [[ "{{ENV}}" =~ ^mainnet$|^preprod$|^preview$ ]]; then
-    echo "Error: only node environments for mainnet, preprod, and preview are supported for truncate-chain recipe"
+  if ! [[ "{{ENV}}" =~ ^mainnet$|^preprod$|^preview$|^dijkstra$|^sanchonet$ ]]; then
+    echo "Error: only node environments for mainnet, preprod, preview, dijkstra and sanchonet are supported for truncate-chain recipe"
     exit 1
   fi
 
@@ -1079,18 +1031,27 @@ truncate-chain ENV SLOT:
   fi
 
   echo "Truncating cardano-node chain for envrionment {{ENV}} to slot {{SLOT}}"
-  just stop-node {{ENV}}
+  just stop-node "{{ENV}}"
   mkdir -p "$STATEDIR"
 
-  SYNTH_ARGS=(
+  DB=(
     "--db" "$STATEDIR/db-{{ENV}}/node/"
-    "cardano"
+  )
+
+  CFG=(
     "--config" "$STATEDIR/config/{{ENV}}/config.json"
   )
 
   TRUNC_ARGS=(
-    "${SYNTH_ARGS[@]}"
+    "${DB[@]}"
+    "${CFG[@]}"
     "--truncate-after-slot" "{{SLOT}}"
+  )
+
+  SYNTH_ARGS=(
+    "${DB[@]}"
+    "--{{LEDGER_TYPE}}"
+    "${CFG[@]}"
   )
 
   nix run .#job-gen-env-config &> /dev/null
@@ -1123,9 +1084,10 @@ update-ips:
   tofu init -reconfigure
   tofu workspace select -or-create cluster
 
+  let nonNixosMachines = {{nonNixosMachines}}
+
   print "\n"
-  let nodeCount = nix eval .#nixosConfigurations --raw --apply 'let f = x: toString (builtins.length (builtins.attrNames x)); in f'
-  print $"Processing ip information for ($nodeCount) nixos machine configurations..."
+  let nixosNodeCount = nix eval .#nixosConfigurations --raw --apply 'let f = x: toString (builtins.length (builtins.attrNames x)); in f'
 
   let tofuJson = (tofu show -json | from json)
 
@@ -1150,7 +1112,10 @@ update-ips:
     | update public_ipv6 {|row| if ($row.public_ipv6 | is-not-empty) {$row.public_ipv6.0} else {null}}
   )
 
-  let ipTable = ($eipTable | merge $instanceTable)
+  let ipTable = ($instanceTable
+    | insert private_ipv4 {|row| $eipTable | where name == $row.name | get -o 0.private_ipv4}
+    | insert public_ipv4 {|row| $eipTable | where name == $row.name | get -o 0.public_ipv4}
+  )
 
   ($ipTable
   | reduce --fold ["
@@ -1158,12 +1123,18 @@ update-ips:
       all = {
     "]
     {|machine, acc|
+      let maybe_field = {|name|
+        if $in != null {
+          $'($name) = "($in)";'
+        }
+      }
       $acc | append $"
-    ($machine.name) = {
-      privateIpv4 = "($machine.private_ipv4)";
-      publicIpv4 = "($machine.public_ipv4)";
-      publicIpv6 = "($machine.public_ipv6)";
-    };"
+        ($machine.name) = {
+          ($machine.private_ipv4 | do $maybe_field privateIpv4)
+          ($machine.public_ipv4 | do $maybe_field publicIpv4)
+          ($machine.public_ipv6 | do $maybe_field publicIpv6)
+        };
+      "
     }
   | append "
       };
@@ -1200,10 +1171,15 @@ update-ips:
   # The pre-push git hook will complain if this file has been committed accidently.
   git add --intent-to-add flake/nixosModules/ips-DONT-COMMIT.nix
 
-  print $"Ips were written for a machine count of: ($eipRecords | length)"
-  if $nodeCount != ($eipRecords | length | into string) {
+  let machineCount = ($ipTable | length)
+  let nonNixosMachineCount = ($nonNixosMachines | length)
+
+  print $"Processing ip information for ($nixosNodeCount) nixos machine\(s) and ($nonNixosMachineCount) non-nixos machine\(s)..."
+  print $"Ips were written for a machine count of: ($machineCount)"
+
+  if $nixosNodeCount != ($machineCount | $in - $nonNixosMachineCount | into string) {
     print "\n"
-    print $"(ansi bg_red)WARNING:(ansi reset) There are ($nodeCount) nixos machine configurations but ($eipRecords | length) ip record sets were written."
+    print $"(ansi bg_red)WARNING:(ansi reset) There are ($nixosNodeCount) nixos machine configurations but ($machineCount | $in - $nonNixosMachineCount) ip nixos record sets were written."
     print "\n"
   }
 
@@ -1234,7 +1210,6 @@ update-ips-example:
       machine-example-2 = {
         privateIpv4 = "172.16.0.2";
         publicIpv4 = "1.2.3.5";
-        publicIpv6 = "";
       };
     };
   in {

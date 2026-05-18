@@ -1,0 +1,149 @@
+{inputs, ...}: {
+  flake.nixosModules.ami = nixos @ {
+    config,
+    pkgs,
+    lib,
+    ...
+  }: let
+    inherit (builtins) floor toString;
+    inherit (lib) mkIf mkOption types;
+    inherit (types) float ints nullOr oneOf;
+
+    # When building standalone AMI, nodeResources won't be in the module args
+    memMiB = nixos.nodeResources.memMiB or null;
+
+    # Calculate ARC max in bytes from percentage
+    calcArcMaxBytes = zfsArcPct:
+      if memMiB == null || zfsArcPct == null
+      then null
+      else floor (memMiB * 1024 * 1024 * zfsArcPct / 100.0);
+  in {
+    imports = [
+      "${inputs.nixpkgs}/nixos/maintainers/scripts/ec2/amazon-image.nix"
+    ];
+
+    options = {
+      boot.zfs.zfsArcPct = mkOption {
+        type = nullOr (oneOf [ints.positive float]);
+        default = 5.0;
+        description = ''
+          Percentage of total memory to allocate for ZFS ARC cache.
+
+          Default: 5.0
+
+          The ZFS ARC (Adaptive Replacement Cache) is ZFS's intelligent cache system.
+          Setting this too high may starve other applications; too low may reduce ZFS performance.
+
+          Set to null to disable setting zfs_arc_max (ZFS will use its own defaults).
+
+          Minimum enforced by ZFS: 64 MiB
+        '';
+      };
+    };
+
+    config = let
+      arcMaxBytes = calcArcMaxBytes config.boot.zfs.zfsArcPct;
+    in {
+      # The nixpkgs AMI image builder (make-multi-disk-zfs-image.nix) uses
+      # pkgs.zfs for the build VM's kernel modules and userspace tools.
+      # Since we use a non-default kernel (6.18), the default ZFS (2.3.5)
+      # is incompatible and marked broken. This overlay aligns pkgs.zfs
+      # with our boot.zfs.package so the build VM can load ZFS modules.
+      nixpkgs.overlays = [
+        (final: _: {
+          zfs = final.zfs_2_4;
+        })
+      ];
+
+      boot = {
+        # Cardano-node >= 10.7.0 requires kernel >= 6.15 for LSM, without which
+        # large IOWAIT will be observed.
+        kernelPackages = pkgs.linuxPackages_6_18;
+
+        # Set ZFS ARC max size via kernel parameter
+        kernelParams = mkIf (arcMaxBytes != null) [
+          "zfs.zfs_arc_max=${toString arcMaxBytes}"
+        ];
+
+        # Use ZFS 2.4 with the latest compatible kernel (6.18)
+        # ZFS 2.3.5 only supports up to 6.17, and no 6.15-6.17 kernels are packaged.
+        # ZFS 2.4.0 supports up to 6.18, and linuxPackages_6_18 is available.
+        zfs.package = pkgs.zfs_2_4;
+      };
+
+      ec2 = {
+        efi = true;
+
+        zfs = {
+          enable = true;
+          datasets = {
+            "tank/reserved".properties = {
+              canmount = "off";
+              refreserv = "1G";
+            };
+            "tank/root".mount = "/";
+            "tank/nix".mount = "/nix";
+            "tank/home".mount = "/home";
+            "tank/state".mount = "/state";
+          };
+        };
+      };
+
+      systemd.services = {
+        # `services.zfs.expandOnBoot` expands the partitions but does not trigger actual expansion.
+        "zpool-expand@" = {
+          path = [pkgs.jq];
+          script = ''
+            for dev in $(
+              zpool status -L --json \
+              | jq --raw-output '.pools.tank.vdevs[].vdevs[].name'
+            ); do
+              # No need for `-e` as the pool has `autoexpand=on`.
+              zpool online tank "$dev"
+            done
+          '';
+        };
+
+        zfs-blank = {
+          wantedBy = ["sysinit.target"];
+          before = ["sysinit.target"];
+
+          path = [config.boot.zfs.package];
+
+          script = ''
+            zfs snapshot -r tank/{root,home}@blank || :
+            zfs hold -r blank tank/{root,home}@blank || :
+          '';
+
+          unitConfig.DefaultDependencies = false;
+
+          serviceConfig.Type = "oneshot";
+        };
+      };
+
+      assertions = let
+        arcMaxBytes = calcArcMaxBytes config.boot.zfs.zfsArcPct;
+      in [
+        {
+          assertion = config.boot.zfs.zfsArcPct == null || (config.boot.zfs.zfsArcPct > 0 && config.boot.zfs.zfsArcPct <= 100);
+          message = ''
+            boot.zfs.zfsArcPct must be between 0 and 100 (got ${toString config.boot.zfs.zfsArcPct}), or null to disable.
+            This represents the percentage of total memory to allocate to ZFS ARC cache.
+          '';
+        }
+        {
+          assertion = arcMaxBytes == null || arcMaxBytes >= 67108864; # 64 MiB minimum
+          message = ''
+            boot.zfs.zfsArcPct results in an ARC size that is too small.
+            Minimum: 67108864 bytes (64 MiB)
+            Current calculated value: ${toString arcMaxBytes} bytes
+            Total memory: ${toString memMiB} MiB
+            Configured percentage: ${toString config.boot.zfs.zfsArcPct}%
+
+            Consider increasing boot.zfs.zfsArcPct or ensuring the machine has sufficient memory.
+          '';
+        }
+      ];
+    };
+  };
+}

@@ -19,15 +19,50 @@
           "type": "dashboard"
         },
         "type": "dashboard"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "mimir"
+        },
+        "enable": false,
+        "hide": false,
+        "iconColor": "orange",
+        "name": "Restarts",
+        "target": {
+          "expr": "cardano_node_metrics_node_start_time_int{environment=\"$environment\",instance=~\"$instance\"} * 1000",
+          "interval": "",
+          "refId": "Anno"
+        },
+        "textFormat": "{{instance}}",
+        "titleFormat": "Node Restarted",
+        "useValueForTime": true
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "mimir"
+        },
+        "enable": false,
+        "hide": false,
+        "iconColor": "green",
+        "name": "Version Changes",
+        "tagKeys": "revision,version",
+        "target": {
+          "expr": "cardano_node_metrics_cardano_build_info{environment=\"$environment\",instance=~\"$instance\"} unless (cardano_node_metrics_cardano_build_info{environment=\"$environment\",instance=~\"$instance\"} offset 4m)",
+          "interval": "",
+          "refId": "Anno"
+        },
+        "textFormat": "{{instance}}",
+        "titleFormat": "Version Change"
       }
     ]
   },
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 23,
+  "id": 39,
   "links": [],
-  "liveNow": false,
   "panels": [
     {
       "datasource": {
@@ -46,6 +81,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -77,8 +113,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -100,19 +135,18 @@
       "interval": "10s",
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "displayMode": "table",
           "placement": "right",
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "8.3.1",
+      "pluginVersion": "12.0.2+security-01",
       "targets": [
         {
           "datasource": {
@@ -120,7 +154,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "blockperf_block_no{environment=\"$environment\", instance=~\"$instances\"}",
+          "expr": "blockperf_block_no{environment=\"$environment\", instance=~\"$instance\"}",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -149,6 +183,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -180,8 +215,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -203,20 +237,18 @@
       "interval": "10s",
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull",
-            "mean"
-          ],
+          "calcs": ["lastNotNull", "mean"],
           "displayMode": "table",
           "placement": "right",
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "8.3.1",
+      "pluginVersion": "12.0.2+security-01",
       "targets": [
         {
           "datasource": {
@@ -224,7 +256,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "blockperf_block_delay{environment=\"$environment\", instance=~\"$instances\"}",
+          "expr": "blockperf_block_delay{environment=\"$environment\", instance=~\"$instance\"}",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -253,6 +285,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -284,8 +317,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -307,20 +339,18 @@
       "interval": "10s",
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull",
-            "mean"
-          ],
+          "calcs": ["lastNotNull", "mean"],
           "displayMode": "table",
           "placement": "right",
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "8.3.1",
+      "pluginVersion": "12.0.2+security-01",
       "targets": [
         {
           "datasource": {
@@ -328,7 +358,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "blockperf_header_delta{environment=\"$environment\", instance=~\"$instances\"}",
+          "expr": "blockperf_header_delta{environment=\"$environment\", instance=~\"$instance\"}",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -357,6 +387,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -388,8 +419,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -411,20 +441,18 @@
       "interval": "10s",
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull",
-            "mean"
-          ],
+          "calcs": ["lastNotNull", "mean"],
           "displayMode": "table",
           "placement": "right",
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "8.3.1",
+      "pluginVersion": "12.0.2+security-01",
       "targets": [
         {
           "datasource": {
@@ -432,7 +460,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "blockperf_block_req_delta{environment=\"$environment\", instance=~\"$instances\"}",
+          "expr": "blockperf_block_req_delta{environment=\"$environment\", instance=~\"$instance\"}",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -461,6 +489,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -492,8 +521,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -515,20 +543,18 @@
       "interval": "10s",
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull",
-            "mean"
-          ],
+          "calcs": ["lastNotNull", "mean"],
           "displayMode": "table",
           "placement": "right",
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "8.3.1",
+      "pluginVersion": "12.0.2+security-01",
       "targets": [
         {
           "datasource": {
@@ -536,7 +562,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "blockperf_block_rsp_delta{environment=\"$environment\", instance=~\"$instances\"}",
+          "expr": "blockperf_block_rsp_delta{environment=\"$environment\", instance=~\"$instance\"}",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -565,6 +591,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -596,8 +623,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -619,20 +645,18 @@
       "interval": "10s",
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull",
-            "mean"
-          ],
+          "calcs": ["lastNotNull", "mean"],
           "displayMode": "table",
           "placement": "right",
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "8.3.1",
+      "pluginVersion": "12.0.2+security-01",
       "targets": [
         {
           "datasource": {
@@ -640,7 +664,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "blockperf_block_adopt_delta{environment=\"$environment\", instance=~\"$instances\"}",
+          "expr": "blockperf_block_adopt_delta{environment=\"$environment\", instance=~\"$instance\"}",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -669,6 +693,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -700,8 +725,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -723,20 +747,18 @@
       "interval": "10s",
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull",
-            "mean"
-          ],
+          "calcs": ["lastNotNull", "mean"],
           "displayMode": "table",
           "placement": "right",
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "8.3.1",
+      "pluginVersion": "12.0.2+security-01",
       "targets": [
         {
           "datasource": {
@@ -744,7 +766,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "avg_over_time(avg by (instance) (irate(node_cpu_seconds_total{instance=~\"$instances\", mode=\"iowait\"}[2m]))[1m:]) * 100",
+          "expr": "avg_over_time(avg by (instance) (irate(node_cpu_seconds_total{instance=~\"$instance\", mode=\"iowait\"}[2m]))[1m:]) * 100",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -773,6 +795,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -804,8 +827,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -827,19 +849,18 @@
       "interval": "10s",
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "displayMode": "table",
           "placement": "right",
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "8.3.1",
+      "pluginVersion": "12.0.2+security-01",
       "targets": [
         {
           "datasource": {
@@ -847,7 +868,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "netdata_statsd_cardano_node_ping_latency_ms_gauge_value_average{environment=\"$environment\", instance=~\"$instances\"}",
+          "expr": "netdata_statsd_cardano_node_ping_latency_ms_gauge_value_average{environment=\"$environment\", instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{instance}}",
           "range": true,
@@ -874,6 +895,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -905,8 +927,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -925,22 +946,20 @@
         "y": 32
       },
       "id": 88,
-      "interval": "",
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "displayMode": "table",
           "placement": "right",
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "8.3.1",
+      "pluginVersion": "12.0.2+security-01",
       "targets": [
         {
           "datasource": {
@@ -948,7 +967,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "round(increase((time() - cardano_node_metrics_nodeStartTime_int{instance=~\"$instances\"} < bool 300)[1h:]))",
+          "expr": "round(increase((time() - cardano_node_metrics_nodeStartTime_int{environment=\"$environment\",instance=~\"$instance\"} < bool 300)[1h:]))",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -956,6 +975,18 @@
           "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "round(increase((time() - cardano_node_metrics_node_start_time_int{environment=\"$environment\",instance=~\"$instance\"} < bool 300)[1h:]))",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "{{instance}}",
+          "range": true,
+          "refId": "B"
         }
       ],
       "title": "Node Restarts",
@@ -978,6 +1009,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -1009,8 +1041,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1032,19 +1063,18 @@
       "interval": "10s",
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "displayMode": "table",
           "placement": "right",
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "8.3.1",
+      "pluginVersion": "12.0.2+security-01",
       "targets": [
         {
           "datasource": {
@@ -1052,7 +1082,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "blockperf_valid_samples_total{environment=\"$environment\", instance=~\"$instances\"}",
+          "expr": "blockperf_valid_samples_total{environment=\"$environment\", instance=~\"$instance\"}",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -1081,6 +1111,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -1112,8 +1143,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1135,19 +1165,18 @@
       "interval": "10s",
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "displayMode": "table",
           "placement": "right",
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "8.3.1",
+      "pluginVersion": "12.0.2+security-01",
       "targets": [
         {
           "datasource": {
@@ -1155,7 +1184,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "blockperf_invalid_samples_total{environment=\"$environment\", instance=~\"$instances\"}",
+          "expr": "blockperf_invalid_samples_total{environment=\"$environment\", instance=~\"$instance\"}",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -1168,14 +1197,14 @@
       "type": "timeseries"
     }
   ],
+  "preload": false,
   "refresh": "1m",
-  "schemaVersion": 39,
+  "schemaVersion": 41,
   "tags": [],
   "templating": {
     "list": [
       {
         "current": {
-          "selected": false,
           "text": "mainnet",
           "value": "mainnet"
         },
@@ -1183,10 +1212,8 @@
           "type": "prometheus"
         },
         "definition": "label_values(cardano_node_metrics_blockNum_int,environment)",
-        "hide": 0,
         "includeAll": false,
         "label": "environment",
-        "multi": false,
         "name": "environment",
         "options": [],
         "query": {
@@ -1196,30 +1223,21 @@
         },
         "refresh": 2,
         "regex": "",
-        "skipUrlSync": false,
-        "sort": 0,
         "type": "query"
       },
       {
-        "allValue": "",
         "current": {
-          "selected": true,
-          "text": [
-            "All"
-          ],
-          "value": [
-            "$__all"
-          ]
+          "text": "All",
+          "value": ["$__all"]
         },
         "datasource": {
           "type": "prometheus"
         },
         "definition": "label_values(blockperf_block_no,instance)",
-        "hide": 0,
         "includeAll": true,
-        "label": "instances",
+        "label": "Instance",
         "multi": true,
-        "name": "instances",
+        "name": "instance",
         "options": [],
         "query": {
           "qryType": 1,
@@ -1228,8 +1246,6 @@
         },
         "refresh": 2,
         "regex": "",
-        "skipUrlSync": false,
-        "sort": 0,
         "type": "query"
       }
     ]
@@ -1238,34 +1254,9 @@
     "from": "now-24h",
     "to": "now"
   },
-  "timepicker": {
-    "refresh_intervals": [
-      "5s",
-      "10s",
-      "30s",
-      "1m",
-      "5m",
-      "15m",
-      "30m",
-      "1h",
-      "2h",
-      "1d"
-    ],
-    "time_options": [
-      "5m",
-      "15m",
-      "1h",
-      "6h",
-      "12h",
-      "24h",
-      "2d",
-      "7d",
-      "30d"
-    ]
-  },
+  "timepicker": {},
   "timezone": "utc",
   "title": "Cardano Node: Block Performance",
   "uid": "ddvq1aojpkikgd",
-  "version": 1,
-  "weekStart": ""
+  "version": 6
 }

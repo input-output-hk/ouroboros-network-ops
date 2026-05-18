@@ -5,7 +5,7 @@
 }:
 with lib; {
   flake.cloudFormation.terraformState = let
-    inherit (config.flake.cardano-parts.cluster.infra.aws) domain bucketName;
+    inherit (config.flake.cardano-parts.cluster.infra.aws) domain bucketName orgId region;
 
     tagWith = name:
       (mapAttrsToList (n: v: {
@@ -35,6 +35,8 @@ with lib; {
           };
         }
       ];
+
+    s3ServerAccessLogsBucket = "s3-server-access-logs-${orgId}-${region}";
   in {
     AWSTemplateFormatVersion = "2010-09-09";
     Description = "Terraform state handling";
@@ -51,87 +53,182 @@ with lib; {
     # Resources here will be created in the AWS_REGION and AWS_PROFILE from your
     # environment variables.
     # Execute this using: `just cf terraformState`
-    Resources = {
-      kmsKey = {
-        Type = "AWS::KMS::Key";
-        DeletionPolicy = "RetainExceptOnCreate";
-        Properties = {
-          Tags = tagWith "kmsKey";
-          KeyPolicy."Fn::Sub" = builtins.toJSON {
-            Version = "2012-10-17";
-            Statement = [
-              {
-                Action = "kms:*";
-                Effect = "Allow";
-                Principal.AWS = "arn:aws:iam::\${AWS::AccountId}:root";
-                Resource = "*";
-                Sid = "Enable admin use and IAM user permissions";
-              }
-            ];
+    Resources =
+      {
+        kmsKey = {
+          Type = "AWS::KMS::Key";
+          DeletionPolicy = "RetainExceptOnCreate";
+          Properties = {
+            Tags = tagWith "kmsKey";
+            KeyPolicy."Fn::Sub" = builtins.toJSON {
+              Version = "2012-10-17";
+              Statement = [
+                {
+                  Action = "kms:*";
+                  Effect = "Allow";
+                  Principal.AWS = "arn:aws:iam::\${AWS::AccountId}:root";
+                  Resource = "*";
+                  Sid = "Enable admin use and IAM user permissions";
+                }
+                {
+                  Action = "kms:*";
+                  Effect = "Allow";
+                  Principal.Service = "logs.${region}.amazonaws.com";
+                  Resource = "*";
+                  Sid = "Enable CloudWatch to encrypt logs";
+                }
+              ];
+            };
           };
         };
-      };
 
-      kmsKeyAlias = {
-        Type = "AWS::KMS::Alias";
-        DeletionPolicy = "RetainExceptOnCreate";
-        Properties = {
-          # This name is used in various places, check before changing it.
-          # KMS aliases do not accept tags
-          AliasName = "alias/kmsKey";
-          TargetKeyId.Ref = "kmsKey";
+        kmsKeyAlias = {
+          Type = "AWS::KMS::Alias";
+          DeletionPolicy = "RetainExceptOnCreate";
+          Properties = {
+            # This name is used in various places, check before changing it.
+            # KMS aliases do not accept tags
+            AliasName = "alias/kmsKey";
+            TargetKeyId.Ref = "kmsKey";
+          };
         };
-      };
 
-      DNSZone = {
-        Type = "AWS::Route53::HostedZone";
-        DeletionPolicy = "RetainExceptOnCreate";
-        Properties = {
-          HostedZoneTags = tagWith domain;
-          Name = domain;
+        DNSZone = {
+          Type = "AWS::Route53::HostedZone";
+          DeletionPolicy = "RetainExceptOnCreate";
+          Properties = {
+            HostedZoneTags = tagWith domain;
+            Name = domain;
+          };
         };
-      };
 
-      S3Bucket = {
-        Type = "AWS::S3::Bucket";
-        DeletionPolicy = "RetainExceptOnCreate";
-        Properties = {
-          Tags = tagWith bucketName;
-          BucketName = bucketName;
-          BucketEncryption.ServerSideEncryptionConfiguration = [
+        S3BucketS3ServerAccessLogs = {
+          Type = "AWS::S3::Bucket";
+          DeletionPolicy = "RetainExceptOnCreate";
+          Properties = {
+            Tags = tagWith bucketName;
+            BucketName = s3ServerAccessLogsBucket;
+            BucketEncryption.ServerSideEncryptionConfiguration = [
+              {
+                BucketKeyEnabled = false;
+                ServerSideEncryptionByDefault.SSEAlgorithm = "AES256";
+              }
+            ];
+            VersioningConfiguration.Status = "Enabled";
+          };
+        };
+
+        S3Bucket = {
+          Type = "AWS::S3::Bucket";
+          DeletionPolicy = "RetainExceptOnCreate";
+          Properties = {
+            Tags = tagWith bucketName;
+            BucketName = bucketName;
+            BucketEncryption.ServerSideEncryptionConfiguration = [
+              {
+                BucketKeyEnabled = false;
+                ServerSideEncryptionByDefault.SSEAlgorithm = "AES256";
+              }
+            ];
+            VersioningConfiguration.Status = "Enabled";
+            LoggingConfiguration = {
+              DestinationBucketName.Ref = "S3BucketS3ServerAccessLogs";
+              LogFilePrefix = "logs/";
+              TargetObjectKeyFormat.PartitionedPrefix.PartitionDateSource = "EventTime";
+            };
+          };
+        };
+
+        DynamoDB = {
+          Type = "AWS::DynamoDB::Table";
+          DependsOn = "kmsKeyAlias";
+          DeletionPolicy = "RetainExceptOnCreate";
+          Properties = {
+            Tags = tagWith "terraform-DynamoDB";
+            TableName = "terraform";
+
+            DeletionProtectionEnabled = true;
+
+            PointInTimeRecoverySpecification = {
+              PointInTimeRecoveryEnabled = true;
+              RecoveryPeriodInDays = 1;
+            };
+
+            KeySchema = [
+              {
+                AttributeName = "LockID";
+                KeyType = "HASH";
+              }
+            ];
+
+            AttributeDefinitions = [
+              {
+                AttributeName = "LockID";
+                AttributeType = "S";
+              }
+            ];
+
+            BillingMode = "PAY_PER_REQUEST";
+
+            SSESpecification = {
+              SSEEnabled = true;
+              SSEType = "KMS";
+              KMSMasterKeyId = "alias/kmsKey";
+            };
+          };
+        };
+      }
+      // lib.mapAttrs' (
+        resourceName: {
+          bucketName,
+          extraStatements ? [],
+        }:
+          lib.nameValuePair
+          "${resourceName}Policy"
+          {
+            Type = "AWS::S3::BucketPolicy";
+            Properties = {
+              Bucket.Ref = resourceName;
+              PolicyDocument = {
+                Version = "2012-10-17";
+                Statement =
+                  [
+                    {
+                      Sid = "RestrictToTLSRequestsOnly";
+                      Effect = "Deny";
+                      Action = "s3:*";
+                      Resource = [
+                        "arn:aws:s3:::${bucketName}"
+                        "arn:aws:s3:::${bucketName}/*"
+                      ];
+                      Condition.Bool."aws:SecureTransport" = "false";
+                      Principal = "*";
+                    }
+                  ]
+                  ++ extraStatements;
+              };
+            };
+          }
+      ) {
+        S3BucketS3ServerAccessLogs = {
+          bucketName = s3ServerAccessLogsBucket;
+          extraStatements = [
             {
-              BucketKeyEnabled = false;
-              ServerSideEncryptionByDefault.SSEAlgorithm = "AES256";
+              Sid = "S3ServerAccessLogsPolicy";
+              Effect = "Allow";
+              Principal.Service = "logging.s3.amazonaws.com";
+              Action = "s3:PutObject";
+              Resource = "arn:aws:s3:::${s3ServerAccessLogsBucket}/*";
+              Condition = {
+                ArnLike."aws:SourceArn" = "arn:aws:s3:::*";
+                StringEquals."aws:SourceAccount" = orgId;
+              };
             }
           ];
-          VersioningConfiguration.Status = "Enabled";
+        };
+        S3Bucket = {
+          inherit bucketName;
         };
       };
-
-      DynamoDB = {
-        Type = "AWS::DynamoDB::Table";
-        DeletionPolicy = "RetainExceptOnCreate";
-        Properties = {
-          Tags = tagWith "terraform-DynamoDB";
-          TableName = "terraform";
-
-          KeySchema = [
-            {
-              AttributeName = "LockID";
-              KeyType = "HASH";
-            }
-          ];
-
-          AttributeDefinitions = [
-            {
-              AttributeName = "LockID";
-              AttributeType = "S";
-            }
-          ];
-
-          BillingMode = "PAY_PER_REQUEST";
-        };
-      };
-    };
   };
 }

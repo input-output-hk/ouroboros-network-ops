@@ -202,10 +202,11 @@ return-utxo() (
 
 # A handy faucet submission function with mempool monitoring, usable on custom networks.
 # CARDANO_NODE_{NETWORK_ID,SOCKET_PATH}, TESTNET_MAGIC should already be exported.
-# SEND_ADDR, LOVELACE, RICH_ADDR and RICH vars need to be provided.
 faucet() (
   SEND_ADDR="$1"
-  LOVELACE="$2"
+  RICH_ADDR="$2"
+  RICH_SKEY_PATH="$3"
+  LOVELACE="$4"
 
   UTXOS=$(cardano-cli query utxo --address "$RICH_ADDR")
   UTXO=$(jq -r 'to_entries | max_by(.value.value.lovelace) | { (.key): .value }' <<< "$UTXOS")
@@ -220,9 +221,123 @@ faucet() (
 
   cardano-cli latest transaction sign \
     --tx-body-file faucet.txbody \
-    --signing-key-file "$RICH.skey" \
+    --signing-key-file "$RICH_SKEY_PATH" \
     --testnet-magic "$TESTNET_MAGIC" \
     --out-file faucet.txsigned
 
   submit faucet.txsigned
+)
+
+run-node-faketime() (
+  if [ "${USE_SHELL_BINS:-}" = "true" ]; then
+    CMD=$(alias cardano-node | cut -d"'" -f2)
+  elif [ "${UNSTABLE:-}" = "true" ]; then
+    CMD="cardano-node-ng"
+  else
+    CMD="cardano-node"
+  fi
+
+  if [ -n "${DEBUG:-}" ]; then
+    echo "Node command: $CMD"
+    "$CMD" --version
+
+    if [ -n "${FAKETIME_FLAKE:-}" ]; then
+      echo "Using faketime from nixpkgs pin: $FAKETIME_FLAKE"
+    fi
+  fi
+
+  ARGS=(
+    "$1" "$CMD" "run"
+    "--config" "$DATA_DIR/node-config.json"
+    "--database-path" "$DATA_DIR/db"
+    "--topology" "$DATA_DIR/topology.json"
+    "+RTS" "-N2" "-A16m" "-qg" "-qb" "-M3584M" "-RTS"
+    "--socket-path" "$DATA_DIR/node.socket"
+    "--host-addr" "0.0.0.0"
+    "--port" "3001"
+    "--bulk-credentials-file" "$GENESIS_DIR/bulk.creds.all.json"
+  )
+
+  # If an older glibc is needed, obtain it from the correct nixpkgs.
+  # To do so, set FAKETIME_FLAKE in the caller, example:
+  #
+  # export FAKETIME_FLAKE="github:nixos/nixpkgs/nixos-23.05"
+  #
+  if [ -n "${FAKETIME_FLAKE:-}" ]; then
+    nix run "$FAKETIME_FLAKE"#libfaketime -- \
+      "${ARGS[@]}" \
+    | tee -a "$DATA_DIR"/node.log
+  else
+    faketime \
+      "${ARGS[@]}" \
+    | tee -a "$DATA_DIR"/node.log
+  fi
+)
+
+synth-prep() (
+  echo "Prepping for block synthesis..."
+  cp "$DATA_DIR"/db/protocolMagicId "$DATA_DIR"/
+  rm "$DATA_DIR"/db/{clean,gsm,lock,protocolMagicId} -rf
+)
+
+synth-restore() (
+  cp "$DATA_DIR"/protocolMagicId "$DATA_DIR"/db/
+  echo "Synthesis clean up complete."
+)
+
+synth-slots() (
+  if [ "${USE_SHELL_BINS:-}" = "true" ]; then
+    CMD=$(alias db-synthesizer | cut -d"'" -f2)
+  elif [ "${UNSTABLE:-}" = "true" ]; then
+    CMD="db-synthesizer-ng"
+  else
+    CMD="db-synthesizer"
+  fi
+
+  synth-prep
+  "$CMD" \
+    --config "$DATA_DIR"/node-config.json \
+    --db "$DATA_DIR"/db \
+    --bulk-credentials-file "$GENESIS_DIR/bulk.creds.all.json" \
+    -a \
+    -s "$1"
+  synth-restore
+)
+
+synth-epochs() (
+  if [ "${USE_SHELL_BINS:-}" = "true" ]; then
+    CMD=$(alias db-synthesizer | cut -d"'" -f2)
+  elif [ "${UNSTABLE:-}" = "true" ]; then
+    CMD="db-synthesizer-ng"
+  else
+    CMD="db-synthesizer"
+  fi
+
+  synth-prep
+  "$CMD" \
+    --config "$DATA_DIR"/node-config.json \
+    --db "$DATA_DIR"/db \
+    --bulk-credentials-file "$GENESIS_DIR/bulk.creds.all.json" \
+    -a \
+    -e "$1"
+  synth-restore
+)
+
+wait-for-mempool() (
+  while true; do
+      [ "$(cardano-cli latest query tx-mempool info | jq -re .numberOfTxs || true)" = "0" ] && break;
+    echo "Waiting for the mempool to settle..."
+    sleep 2
+  done
+  echo "Mempool is clear..."
+)
+
+wait-for-tip() (
+  TYPE="$1"
+  TARGET="$2"
+
+  while true; do
+      [ "$(jq -re ".$TYPE" <<< "$(cardano-cli latest query tip)")" = "$TARGET" ] && break;
+    sleep 2
+  done
 )
