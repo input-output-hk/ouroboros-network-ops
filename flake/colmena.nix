@@ -41,18 +41,18 @@ in
       # disableAlertCount.cardano-parts.perNode.meta.enableAlertCount = false;
       # delete.aws.instance.count = 0;
 
-      mkCustomNode = flakeInput: iohkNixInput:
-        node
-        // {
-          cardano-parts.perNode = {
-            lib.cardanoLib = mkIf (iohkNixInput != null) (config.flake.cardano-parts.pkgs.special.cardanoLibCustom inputs.${iohkNixInput} "x86_64-linux");
-            pkgs = {inherit (inputs.${flakeInput}.packages.x86_64-linux) cardano-cli cardano-node cardano-submit-api;};
-          };
-        };
+      # mkCustomNode = flakeInput: iohkNixInput:
+      #   node
+      #   // {
+      #     cardano-parts.perNode = {
+      #       lib.cardanoLib = mkIf (iohkNixInput != null) (config.flake.cardano-parts.pkgs.special.cardanoLibCustom inputs.${iohkNixInput} "x86_64-linux");
+      #       pkgs = {inherit (inputs.${flakeInput}.packages.x86_64-linux) cardano-cli cardano-node cardano-submit-api;};
+      #     };
+      #   };
 
       # Example use of mkCustomNode:
       # node-tx-submission = mkCustomNode "cardano-node-tx-submission" "iohk-nix-10-4-0";
-      node-undecision = mkCustomNode "cardano-node-tx-undecision" null;
+      # node-undecision = mkCustomNode "cardano-node-tx-undecision" null;
 
       # Cardano group assignments:
       group = name: {
@@ -99,44 +99,44 @@ in
       #   ];
       # };
 
-      node-10-7-1 = let
-        caPkgs = inputs.cardano-parts.inputs.capkgs.packages.x86_64-linux;
-        pkg = name: caPkgs."${name}-input-output-hk-cardano-node-10-7-1-045bc18";
-      in {
-        imports = [
-          node
-          {
-            cardano-parts.perNode.pkgs = {
-              cardano-cli = mkForce (pkg "cardano-cli");
-              cardano-node = mkForce ((pkg "cardano-node") // {version = "10.7.1";});
-              cardano-submit-api = mkForce (pkg "cardano-submit-api");
-            };
-          }
-        ];
-      };
+      # node-10-7-1 = let
+      #   caPkgs = inputs.cardano-parts.inputs.capkgs.packages.x86_64-linux;
+      #   pkg = name: caPkgs."${name}-input-output-hk-cardano-node-10-7-1-045bc18";
+      # in {
+      #   imports = [
+      #     node
+      #     {
+      #       cardano-parts.perNode.pkgs = {
+      #         cardano-cli = mkForce (pkg "cardano-cli");
+      #         cardano-node = mkForce ((pkg "cardano-node") // {version = "10.7.1";});
+      #         cardano-submit-api = mkForce (pkg "cardano-submit-api");
+      #       };
+      #     }
+      #   ];
+      # };
 
-      unModsBase = {
-        imports = [
-          {
-            services.cardano-node = {
-              # Add an extra ~2 GB of RAM to heap and systemd max.
-              # Standard calc is 79% total RAM to heap allocation.
-              totalMaxHeapSizeMiB = (26508 / 1.024) + 2048;
+      # unModsBase = {
+      #   imports = [
+      #     {
+      #       services.cardano-node = {
+      #         # Add an extra ~2 GB of RAM to heap and systemd max.
+      #         # Standard calc is 79% total RAM to heap allocation.
+      #         totalMaxHeapSizeMiB = (26508 / 1.024) + 2048;
 
-              extraNodeConfig = {
-                TraceMempool = true;
-                TraceTxCounters = true;
-                TraceTxInbound = true;
-              };
-              useLegacyTracing = true;
-            };
-          }
-        ];
-      };
+      #         extraNodeConfig = {
+      #           TraceMempool = true;
+      #           TraceTxCounters = true;
+      #           TraceTxInbound = true;
+      #         };
+      #         useLegacyTracing = true;
+      #       };
+      #     }
+      #   ];
+      # };
 
-      unModsUndecision = {
-        services.cardano-node.extraNodeConfig.TxSubmissionLogicVersion = "TxSubmissionLogicV2";
-      };
+      # unModsUndecision = {
+      #   services.cardano-node.extraNodeConfig.TxSubmissionLogicVersion = "TxSubmissionLogicV2";
+      # };
 
       # Profiles
       # customRts = (nixos: let
