@@ -23,6 +23,23 @@ in {
         }
       ];
     };
+
+    # Debian 13 (Trixie) AMI for leios1-jp-1
+    debian_13_ap_northeast_1 = {
+      provider = "aws.ap_northeast_1";
+      most_recent = true;
+      owners = ["136693071363"]; # Debian official AWS account
+      filter = [
+        {
+          name = "name";
+          values = ["debian-13-amd64-*"];
+        }
+        {
+          name = "architecture";
+          values = ["x86_64"];
+        }
+      ];
+    };
   };
 
   resource.aws_instance = {
@@ -71,6 +88,52 @@ in {
       '';
       lifecycle = [{ignore_changes = ["ami" "user_data"];}];
     };
+
+    leios1-jp-1 = {
+      provider = awsProviderFor "ap_northeast_1";
+      ami = "\${data.aws_ami.debian_13_ap_northeast_1.id}";
+      instance_type = "c8id.xlarge";
+      iam_instance_profile = "\${aws_iam_instance_profile.ec2_profile.name}";
+      monitoring = true;
+      key_name = "\${aws_key_pair.bootstrap_ap_northeast_1[0].key_name}";
+      vpc_security_group_ids = ["\${aws_security_group.common_ap_northeast_1[0].id}"];
+      tags = {
+        Name = "leios1-jp-1";
+        environment = "leios";
+        group = "leios1";
+      };
+      root_block_device = {
+        volume_size = 300;
+        volume_type = "gp3";
+        iops = 3000;
+        throughput = 125;
+        delete_on_termination = true;
+        tags =
+          defaultTags
+          // {
+            Name = "leios1-jp-1";
+            environment = "leios";
+            group = "leios1";
+          };
+      };
+      metadata_options = {
+        http_endpoint = "enabled";
+        http_put_response_hop_limit = 2;
+        http_tokens = "required";
+      };
+      ipv6_address_count = "\${data.aws_vpc.ap_northeast_1.ipv6_cidr_block == \"\" ? null : 1}";
+      user_data = ''
+        #!/bin/bash
+        set -euo pipefail
+        apt-get update -y
+        apt-get install -y wget
+        wget -q https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb
+        dpkg -i amazon-ssm-agent.deb
+        systemctl enable amazon-ssm-agent
+        systemctl start amazon-ssm-agent
+      '';
+      lifecycle = [{ignore_changes = ["ami" "user_data"];}];
+    };
   };
 
   resource.aws_eip = {
@@ -83,6 +146,18 @@ in {
           Name = "ignite1-eu3-1";
           environment = "mainnet";
           group = "ignite1";
+        };
+    };
+
+    leios1-jp-1 = {
+      provider = awsProviderFor "ap_northeast_1";
+      instance = "\${aws_instance.leios1-jp-1.id}";
+      tags =
+        defaultTags
+        // {
+          Name = "leios1-jp-1";
+          environment = "leios";
+          group = "leios1";
         };
     };
   };
@@ -105,6 +180,23 @@ in {
       records = ["\${aws_instance.ignite1-eu3-1.ipv6_addresses[0]}"];
       allow_overwrite = true;
     };
+    "leios1-jp-1" = {
+      zone_id = "\${data.aws_route53_zone.selected.zone_id}";
+      name = "leios1-jp-1.\${data.aws_route53_zone.selected.name}";
+      type = "A";
+      ttl = "300";
+      records = ["\${aws_eip.leios1-jp-1.public_ip}"];
+      allow_overwrite = true;
+    };
+    "leios1-jp-1-AAAA" = {
+      count = "1";
+      zone_id = "\${data.aws_route53_zone.selected.zone_id}";
+      name = "leios1-jp-1.\${data.aws_route53_zone.selected.name}";
+      type = "AAAA";
+      ttl = "300";
+      records = ["\${aws_instance.leios1-jp-1.ipv6_addresses[0]}"];
+      allow_overwrite = true;
+    };
   };
 
   sshConfig = ''
@@ -121,6 +213,21 @@ in {
 
     Host ignite1-eu3-1.ipv6
       HostName ''${length(aws_instance.ignite1-eu3-1.ipv6_addresses) > 0 ? aws_instance.ignite1-eu3-1.ipv6_addresses[0] : "unavailable.ipv6"}
+      User admin
+
+    Host leios1-jp-1
+      HostName ''${aws_instance.leios1-jp-1.id}
+      ProxyCommand sh -c "aws --region ap-northeast-1 ssm start-session --target %h --document-name AWS-StartSSHSession --parameters 'portNumber=%p'"
+      Tag c8id.xlarge
+      User admin
+
+    Host leios1-jp-1.ipv4
+      HostName ''${aws_eip.leios1-jp-1.public_ip}
+      Tag ap-northeast-1
+      User admin
+
+    Host leios1-jp-1.ipv6
+      HostName ''${length(aws_instance.leios1-jp-1.ipv6_addresses) > 0 ? aws_instance.leios1-jp-1.ipv6_addresses[0] : "unavailable.ipv6"}
       User admin
   '';
 }

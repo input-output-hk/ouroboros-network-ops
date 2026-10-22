@@ -15,7 +15,7 @@ statePrefix := "~/.local/share"
 
 # Machines provisioned directly by tofu, not managed by colmena/NixOS
 # The list structure should be like: ["machine-a", "machine-b"] with optional comma delimiter
-nonNixosMachines := '["ignite1-eu3-1"]'
+nonNixosMachines := '["ignite1-eu3-1", "leios1-jp-1"]'
 
 # Environment variables can be used to change the default template diff and path comparison sources.
 # If TEMPLATE_PATH is set, it will have precedence, otherwise git url will be used for source templates.
