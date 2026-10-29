@@ -48,6 +48,8 @@
     };
 
     infra.generic = {
+      nixpkgsUpgrade = false;
+
       # Update basic info about the cluster here.
       # This will be used for generic resource tagging where possible.
 

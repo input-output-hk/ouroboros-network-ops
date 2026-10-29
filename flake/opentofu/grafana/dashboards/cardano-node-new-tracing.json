@@ -1294,7 +1294,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "netdata_statsd_cardano_node_ping_latency_ms_gauge_value_average{environment=\"$environment\",instance=~\"$instance\"}",
+          "expr": "cardano_node_metrics_custom_ping_latency_ms{environment=\"$environment\",instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{instance}}",
           "range": true,
@@ -3804,6 +3804,18 @@
         "overrides": [
           {
             "matcher": {
+              "id": "byRegexp",
+              "options": "^(Kernel Version|Total CPU|Total Memory)$"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "center"
+              }
+            ]
+          },
+          {
+            "matcher": {
               "id": "byName",
               "options": "Version"
             },
@@ -4044,6 +4056,16 @@
           "legendFormat": "__auto",
           "range": false,
           "refId": "C"
+        },
+        {
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "max by (instance, release) (node_uname_info{instance=~\"$instance\"})",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "D"
         }
       ],
       "title": "Machine Info",
@@ -4062,7 +4084,9 @@
               "Time 1": true,
               "Time 2": true,
               "Time 3": true,
+              "Time 4": true,
               "Value #A": true,
+              "Value #D": true,
               "__name__ 1": true,
               "__name__ 2": true,
               "__name__ 3": true,
@@ -4077,12 +4101,19 @@
               "version_id": true
             },
             "includeByName": {},
-            "indexByName": {},
+            "indexByName": {
+              "instance": 0,
+              "pretty_name": 1,
+              "release": 2,
+              "Value #B": 3,
+              "Value #C": 4
+            },
             "renameByName": {
               "Value #B": "Total CPU",
               "Value #C": "Total Memory",
               "instance": "Instance",
-              "pretty_name": "Version"
+              "pretty_name": "Version",
+              "release": "Kernel Version"
             }
           }
         }

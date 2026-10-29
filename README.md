@@ -273,6 +273,15 @@ Grafana templates are available [here](./flake/opentofu/grafana/dashboards).
 Note that one can modify a dashboard in Grafana, download the JSON model and
 commit it in this repo.
 
+### Grafana credentials
+
+The encrypted `secrets/tf/grafana.tfvars` must provide `loki_uri` (the rules
+endpoint, ending in `/loki`), `loki_username` (the tenant username), and
+`deadmanssnitch_loki_api_url`. Use a separate snitch dedicated to this
+cluster's Loki ruler so another ruler cannot mask an outage. The existing
+metrics snitch monitors the metrics ruler. The Loki provider uses
+`mimir_api_key`, which must also have permission to manage Loki rules.
+
 ### Deploying
 
 `ssh` to `dev-deployer`, go to `ouroboros-network-ops` directory and execute:
@@ -413,6 +422,17 @@ just template-clone "$FILE"
 can typically be ignored unless explicitly mentioned in the PR description.
 
 ### Step 6: Apply the Changes
+
+Review the relevant OpenTofu plans before applying changes:
+
+```bash
+just tf grafana plan
+just tf cluster plan
+```
+
+Check that the cluster plan preserves existing machines unless replacements
+are intended. When an update renames metrics, coordinate the Grafana changes
+with the node rollout and verify dashboards and alerts against live data.
 
 After updating the necessary files, apply the changes with:
 

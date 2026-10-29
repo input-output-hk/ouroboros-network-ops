@@ -9,7 +9,10 @@
       (inputs.nixpkgs.lib.nixosSystem {
         modules = [
           config.flake.nixosModules.ami
-          {nixpkgs.hostPlatform = system;}
+          {
+            nixpkgs.hostPlatform = system;
+            system.stateVersion = "25.11";
+          }
 
           # for sops with KMS
           inputs.cardano-parts.nixosModules.profile-common

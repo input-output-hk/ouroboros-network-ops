@@ -75,7 +75,7 @@ in {
         http_put_response_hop_limit = 2;
         http_tokens = "required";
       };
-      ipv6_address_count = "\${data.aws_vpc.eu_west_3.ipv6_cidr_block == \"\" ? null : 1}";
+      ipv6_address_count = "\${length(tolist(data.aws_vpc.eu_west_3.ipv6_cidr_block_associations)) == 0 ? null : 1}";
       user_data = ''
         #!/bin/bash
         set -euo pipefail
@@ -121,7 +121,7 @@ in {
         http_put_response_hop_limit = 2;
         http_tokens = "required";
       };
-      ipv6_address_count = "\${data.aws_vpc.ap_northeast_1.ipv6_cidr_block == \"\" ? null : 1}";
+      ipv6_address_count = "\${length(tolist(data.aws_vpc.ap_northeast_1.ipv6_cidr_block_associations)) == 0 ? null : 1}";
       user_data = ''
         #!/bin/bash
         set -euo pipefail

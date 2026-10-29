@@ -56,6 +56,10 @@
       ];
 
       boot = {
+        # Keep remote boots working after unclean shutdowns; these EC2 root
+        # disks are single-attached EBS volumes with Multi-Attach disabled.
+        zfs.forceImportRoot = true;
+
         # Cardano-node >= 10.7.0 requires kernel >= 6.15 for LSM, without which
         # large IOWAIT will be observed.
         kernelPackages = pkgs.linuxPackages_6_18;

@@ -12,6 +12,7 @@ with lib; let
 
   alertFileList = parseDir ./grafana/alerts ".nix-import";
   dashboardFileList = parseDir ./grafana/dashboards ".json";
+  lokiAlertFileList = parseDir ./grafana/alerts-loki ".nix-import";
   recordingRulesFileList = parseDir ./grafana/recording-rules ".nix-import";
 
   extractFileName = file:
@@ -44,6 +45,7 @@ in {
         terraform = {
           required_providers = {
             grafana.source = "grafana/grafana";
+            loki.source = "fgouteroux/loki";
             mimir.source = "fgouteroux/mimir";
           };
 
@@ -59,6 +61,7 @@ in {
 
         variable = {
           deadmanssnitch_api_url = sensitiveString;
+          deadmanssnitch_loki_api_url = sensitiveString;
           grafana_token = sensitiveString;
           grafana_url = sensitiveString;
           pagerduty_api_key = sensitiveString;
@@ -71,6 +74,9 @@ in {
           mimir_prometheus_ruler_uri = sensitiveString;
           mimir_prometheus_alertmanager_uri = sensitiveString;
           mimir_prometheus_username = sensitiveString;
+
+          loki_uri = sensitiveString;
+          loki_username = sensitiveString;
         };
 
         provider = {
@@ -100,6 +106,13 @@ in {
               password = "\${var.mimir_api_key}";
             }
           ];
+
+          loki = {
+            uri = "\${var.loki_uri}";
+            org_id = "1";
+            username = "\${var.loki_username}";
+            password = "\${var.mimir_api_key}";
+          };
         };
 
         resource = {
@@ -133,6 +146,13 @@ in {
                     group_interval = "1m";
                     repeat_interval = "5m";
                   }
+                  {
+                    receiver = "deadmanssnitch-loki";
+                    matchers = [''alertname="DeadMansSnitchLoki"''];
+                    group_wait = "30s";
+                    group_interval = "1m";
+                    repeat_interval = "5m";
+                  }
                 ];
               }
             ];
@@ -147,6 +167,13 @@ in {
                 webhook_configs = {
                   send_resolved = false;
                   url = "\${var.deadmanssnitch_api_url}";
+                };
+              }
+              {
+                name = "deadmanssnitch-loki";
+                webhook_configs = {
+                  send_resolved = false;
+                  url = "\${var.deadmanssnitch_loki_api_url}";
                 };
               }
             ];
@@ -171,6 +198,18 @@ in {
                 // {provider = "mimir.prometheus";};
             }) {}
           alertFileList;
+
+          loki_rule_group_alerting = foldl' (acc: f:
+            recursiveUpdate acc {
+              ${extractFileName f} =
+                (
+                  if isFunction (import f)
+                  then (import f) self
+                  else (import f)
+                )
+                // {provider = "loki";};
+            }) {}
+          lokiAlertFileList;
 
           # Recording rules
           mimir_rule_group_recording = foldl' (acc: f:
