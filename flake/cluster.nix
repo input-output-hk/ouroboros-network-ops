@@ -75,6 +75,13 @@
 
     # For defining deployment groups with varying configuration.  Adjust as needed.
     groups = {
+      leios1 = {
+        groupPrefix = "leios1-";
+        meta.environmentName = "leios";
+        bookRelayMultivalueDns = null;
+        groupRelayMultivalueDns = "leios1-node.${infra.aws.domain}";
+      };
+
       mainnet1 = {
         groupPrefix = "mainnet1-";
         meta.environmentName = "mainnet";
