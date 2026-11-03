@@ -152,27 +152,6 @@ in
             immutableDatabasePath = config.services.cardano-node.databasePath 0;
             volatileDatabasePath = "/ephemeral/cardano-node/${config.services.cardano-node.dbPrefix 0}";
           };
-
-          services.cardano-node.extraNodeConfig = {
-            ConsensusMode = "PraosMode";
-
-            # Additional cfg to debug network issues
-            TraceOptions = {
-              "BlockFetch.Client".severity = "Info";
-              "BlockFetch.Decision" = {
-                severity = "Debug";
-                maxFrequency = 2.0;
-              };
-              "ChainSync.Client".severity = "Debug";
-              "ChainSync.ServerHeader" = {
-                severity = "Info";
-                maxFrequency = 2.0;
-              };
-              "ChainDB.AddBlockEvent".severity = "Debug";
-              "ChainDB.AddBlockEvent.PoppedBlockFromQueue".maxFrequency = 2.0;
-              "ChainDB.AddBlockEvent.AddBlockValidation".severity = "Info";
-            };
-          };
         };
 
       # node-10-7-1 = let
