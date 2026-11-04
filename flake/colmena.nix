@@ -483,16 +483,16 @@ in
       ];
 
       # Mainnet group
-      mainnet1-rel-au-1 = {imports = [au m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoAu];};
-      mainnet1-rel-br-1 = {imports = [br m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoBr];};
+      mainnet1-rel-au-1 = {imports = [au m6i-2xlarge (ebs 350) (group "mainnet1") node rel topoAu];};
+      mainnet1-rel-br-1 = {imports = [br m6i-2xlarge (ebs 350) (group "mainnet1") node rel topoBr];};
       mainnet1-rel-eu1-1 = {imports = [eu1 m6i-2xlarge (ebs 300) (group "mainnet1") node rel amiZfs];};
       mainnet1-rel-eu1-2 = {imports = [eu1 m6i-2xlarge (ebs 300) (group "mainnet1") node rel amiZfs];};
-      mainnet1-rel-eu3-1 = {imports = [eu3 m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoEu3];};
-      mainnet1-rel-jp-1 = {imports = [jp m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoJp];};
-      mainnet1-rel-sa-1 = {imports = [sa m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoSa];};
-      mainnet1-rel-sg-1 = {imports = [sg m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoSg peerSharingDisabled];};
-      mainnet1-rel-us1-1 = {imports = [us1 m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoUs1];};
-      mainnet1-rel-us2-1 = {imports = [us2 m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoUs2];};
+      mainnet1-rel-eu3-1 = {imports = [eu3 m6i-2xlarge (ebs 350) (group "mainnet1") node rel topoEu3];};
+      mainnet1-rel-jp-1 = {imports = [jp m6i-2xlarge (ebs 350) (group "mainnet1") node rel topoJp];};
+      mainnet1-rel-sa-1 = {imports = [sa m6i-2xlarge (ebs 350) (group "mainnet1") node rel topoSa];};
+      mainnet1-rel-sg-1 = {imports = [sg m6i-2xlarge (ebs 350) (group "mainnet1") node rel topoSg peerSharingDisabled];};
+      mainnet1-rel-us1-1 = {imports = [us1 m6i-2xlarge (ebs 350) (group "mainnet1") node rel topoUs1];};
+      mainnet1-rel-us2-1 = {imports = [us2 m6i-2xlarge (ebs 350) (group "mainnet1") node rel topoUs2];};
 
       # Leios group, on the leios prototype node as cardano-playground's leios hosts are
       leios1-rel-eu1-1 = {imports = [eu1 c8id-2xlarge (ebs 300) (nodeRamPct 70) (group "leios1") node-leios leiosRel topoLeiosPlay];};
