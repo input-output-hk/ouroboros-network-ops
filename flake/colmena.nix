@@ -24,11 +24,13 @@ in
 
       # Instance defs:
       # t3a-small.aws.instance.instance_type = "t3a.small";
+      c8id-2xlarge.aws.instance.instance_type = "c8id.2xlarge";
       m6i-2xlarge.aws.instance.instance_type = "m6i.2xlarge";
       # c8i-16xlarge.aws.instance.instance_type = "c8i.16xlarge";
 
       # Helper fns:
       ebs = size: {aws.instance.root_block_device.volume_size = mkDefault size;};
+      nodeRamPct = ramPercent: nixos: {services.cardano-node.totalMaxHeapSizeMiB = nixos.nodeResources.memMiB * ramPercent / 100;};
       # noBPerf = {services.blockperf.enable = false;};
       # ebsIops = iops: {aws.instance.root_block_device.iops = mkDefault iops;};
       # ebsTp = tp: {aws.instance.root_block_device.throughput = mkDefault tp;};
@@ -40,6 +42,13 @@ in
       # Helper defs:
       # disableAlertCount.cardano-parts.perNode.meta.enableAlertCount = false;
       # delete.aws.instance.count = 0;
+
+      # leios.imm.db is rewritten constantly, so each snapshot pins close to a
+      # full copy of it. Measured across the cardano-playground leios fleet on
+      # 2026-09-26, each snapshot holds 2.0G to 3.6G, so the module default of
+      # 72 projects to 147G to 259G of snapshots per host. 36 snapshots at the
+      # 20 minute cadence is a 12h window and roughly half that.
+      leiosSnapRetention.services.zfs-snapshots.keep = 36;
 
       # mkCustomNode = flakeInput: iohkNixInput:
       #   node
@@ -56,6 +65,9 @@ in
 
       # Cardano group assignments:
       group = name: {
+        # Apply group wide common imports
+        imports = optionals (hasPrefix "leios" name) [amiZfs leiosLogging inputs.cardano-parts.nixosModules.profile-zfs-snapshots leiosSnapRetention];
+
         cardano-parts.cluster.group = config.flake.cardano-parts.cluster.groups.${name};
 
         # Since all machines are assigned a group, this is a good place to include default aws instance tags
@@ -85,19 +97,62 @@ in
         ];
       };
 
-      # node-pre = {
-      #   imports = [
-      #     # Base cardano-node service
-      #     config.flake.cardano-parts.cluster.groups.default.meta.cardano-node-service-ng
-      #     config.flake.cardano-parts.cluster.groups.default.meta.cardano-tracer-service-ng
-      #
-      #     # Config for cardano-node group deployments
-      #     inputs.cardano-parts.nixosModules.profile-cardano-node-group
-      #     inputs.cardano-parts.nixosModules.profile-cardano-custom-metrics
-      #
-      #     pre
-      #   ];
-      # };
+      node-pre = {
+        imports = [
+          # Base cardano-node service
+          config.flake.cardano-parts.cluster.groups.default.meta.cardano-node-service-ng
+          config.flake.cardano-parts.cluster.groups.default.meta.cardano-tracer-service-ng
+
+          # Config for cardano-node group deployments
+          inputs.cardano-parts.nixosModules.profile-cardano-node-group
+          inputs.cardano-parts.nixosModules.profile-cardano-custom-metrics
+
+          pre
+        ];
+      };
+
+      mkCustomNodePre = flakeInput: let
+        input = getAttrFromPath (splitString "." flakeInput) inputs;
+      in {
+        imports = [
+          node-pre
+          {
+            cardano-parts.perNode = {
+              pkgs = {
+                cardano-cli = mkForce input.packages.x86_64-linux.cardano-cli;
+                cardano-node = mkForce input.packages.x86_64-linux.cardano-node;
+                cardano-submit-api = mkForce input.packages.x86_64-linux.cardano-submit-api;
+                cardano-tracer = mkForce input.packages.x86_64-linux.cardano-tracer;
+              };
+            };
+          }
+        ];
+      };
+
+      # The leios prototype node, configured as on cardano-playground's leios hosts.
+      node-leios = {config, ...}: let
+        # Ouroboros leios makes leios prototype packages available through its cardano-node-leios input
+        base = mkCustomNodePre "cardano-node-leios.inputs.cardano-node-leios";
+      in
+        base
+        // {
+          # `//` replaces a key outright, so concatenate rather than assign:
+          # base.imports carries node-pre and the leios package overrides, and
+          # assigning imports here would silently drop both.
+          imports = base.imports ++ [nixosModules.leios-mempool-monitor];
+
+          environment.systemPackages = [inputs.cardano-node-leios.packages.x86_64-linux.mempool-monitor-static];
+
+          # Each leios partition follows the node's own db paths, so
+          # leios.imm.db sits beside immutable/ and leios.vol.db beside
+          # volatile/. Keep the growing immutable partition on the ebs root and
+          # put the write heavy volatile partition on the instance store. Note
+          # ledger/ and gsm/ follow the volatile path too.
+          services.cardano-node = {
+            immutableDatabasePath = config.services.cardano-node.databasePath 0;
+            volatileDatabasePath = "/ephemeral/cardano-node/${config.services.cardano-node.dbPrefix 0}";
+          };
+        };
 
       # node-10-7-1 = let
       #   caPkgs = inputs.cardano-parts.inputs.capkgs.packages.x86_64-linux;
@@ -158,14 +213,57 @@ in
         };
       };
 
-      # pre = {imports = [inputs.cardano-parts.nixosModules.profile-pre-release];};
+      pre = {imports = [inputs.cardano-parts.nixosModules.profile-pre-release];};
+
+      leiosLogging = {
+        # Leios debug traces exceed journald's burst limit, dropping events
+        # needed for peer diagnostics and the derived Alloy streams.
+        services.journald = {
+          rateLimitInterval = "0";
+          rateLimitBurst = 0;
+        };
+
+        imports = [
+          # Alloy pipelines deriving the leios Loki streams from the journald
+          # machine-format trace lines configured below.
+          nixosModules.leios-alloy-logs
+          {
+            services = {
+              cardano-node.extraNodeConfig = {
+                TraceOptions = {
+                  # Preserve ChainSel call timings and allocations for the call-trace dashboard.
+                  "ChainDB.AddBlockEvent.TraceAddBlockCall" = {
+                    severity = "Debug";
+                    maxFrequency = 0;
+                  };
+
+                  # Extra debug logging when needed:
+                  # "BlockFetch.Client".severity = "Info";
+                  # "BlockFetch.Decision" = {
+                  #   severity = "Debug";
+                  #   maxFrequency = 2.0;
+                  # };
+                  # "ChainSync.Client".severity = "Debug";
+                  # "ChainSync.ServerHeader" = {
+                  #   severity = "Info";
+                  #   maxFrequency = 2.0;
+                  # };
+                  # "ChainDB.AddBlockEvent".severity = "Debug";
+                  # "ChainDB.AddBlockEvent.PoppedBlockFromQueue".maxFrequency = 2.0;
+                  # "ChainDB.AddBlockEvent.AddBlockValidation".severity = "Info";
+                };
+              };
+            };
+          }
+        ];
+      };
 
       # Topology profiles
       # Note: not including a topology profile will default to edge topology if module profile-cardano-node-group is imported
       # topoBp = {imports = [inputs.cardano-parts.nixosModules.profile-cardano-node-topology {services.cardano-node-topology = {role = "bp";};}];};
       #
       # Note: When a relay role is used, topology will automatically set localRoots for all other machines in the group
-      # topoRel = {imports = [inputs.cardano-parts.nixosModules.profile-cardano-node-topology {services.cardano-node-topology = {role = "relay";};}];};
+      topoRel = {imports = [inputs.cardano-parts.nixosModules.profile-cardano-node-topology {services.cardano-node-topology = {role = "relay";};}];};
       #
       # To customize localRoots, the standard cardano-node service options can be used, but more convienent options are found in
       # cardano-parts flake/nixosModules/profile-cardano-node-topology.nix and flakeModules/lib/topology.nix.
@@ -211,6 +309,25 @@ in
       topoUs1 = mkExtraNodeListProducers ["us1" "us2" "br" "jp" "au"];
       topoUs2 = mkExtraNodeListProducers ["us1" "eu3" "us1" "br"];
 
+      # The cardano-playground leios relays as trustable localRoots, one per
+      # playground group. They are not machines in this repo, so extraProducers
+      # rather than extraNodeListProducers. Each name resolves to that group's
+      # relays and gets valency 1, so the node keeps one hot peer per group.
+      topoLeiosPlay = {
+        imports = [
+          inputs.cardano-parts.nixosModules.profile-cardano-node-topology
+          {
+            services.cardano-node-topology.extraProducers =
+              map (group: {
+                address = "${group}-node.play.dev.cardano.org";
+                port = 3001;
+                trustable = true;
+              })
+              ["leios1" "leios2" "leios3"];
+          }
+        ];
+      };
+
       # Roles
       # bp = {
       #   imports = [
@@ -235,6 +352,61 @@ in
         ];
       };
 
+      # Relay role for leios hosts, as on cardano-playground. Group relay
+      # auto-topology is used here, so any leios1 bp or relay added later
+      # becomes a localRoot.
+      leiosRel = nixos: {
+        imports = [
+          inputs.cardano-parts.nixosModules.role-relay
+          topoRel
+
+          # As on cardano-playground: blockperf prometheus metrics only, nothing
+          # pushed upstream to CF.
+          bperfNoPublish
+        ];
+
+        # IncludeConnection carries explicit Inbound/Outbound provenance;
+        # HandshakeSuccess and the local port do not distinguish direction.
+        services.cardano-node.extraNodeConfig.TraceOptions.
+          "Net.ConnectionManager.Remote.IncludeConnection".severity = "Debug";
+
+        services.fail2ban.jails = let
+          inboundFilter = {
+            Init.journalmatch = "_SYSTEMD_UNIT=cardano-node.service";
+            Definition.failregex = ''"ns"\s*:\s*"Net\.ConnectionManager\.Remote\.IncludeConnection"(?=.*"provenance"\s*:\s*"Inbound").*"remoteAddress"\s*:\s*\{"address"\s*:\s*"<HOST>"'';
+          };
+          inboundSettings = {
+            # The node's UID logs land in user-*.journal, excluded by
+            # SYSTEM_ONLY. Keep the node-unit journalmatch while reading both.
+            backend = "systemd[journalflags=0]";
+            port = nixos.config.cardano-parts.perNode.meta.cardanoNodePort;
+            bantime = 3600;
+          };
+        in {
+          # Sustained inbound reconnects: 300 accepts in ten minutes.
+          cnode-flood = {
+            filter = inboundFilter;
+            settings =
+              inboundSettings
+              // {
+                findtime = 600;
+                maxretry = 300;
+              };
+          };
+          # Short bursts: 30 accepts in 30 seconds. Separate jail names give
+          # independent firewall chains so expiry in one cannot undo the other.
+          cnode-burst = {
+            filter = inboundFilter;
+            settings =
+              inboundSettings
+              // {
+                findtime = 30;
+                maxretry = 30;
+              };
+          };
+        };
+      };
+
       # Blockperf for bootstrap nodes
       # Utilize the /etc/hosts list for bp ip lookups
       # bpDnsList = map (bpNode: "${bpNode}.public-ipv4") (filter (hasInfix "-bp-") (attrNames nixosConfigurations));
@@ -253,17 +425,17 @@ in
         ];
       };
       # Include blockPerf by default with no upstream push to CF -- only push prom metrics
-      # bperfNoPublish = {
-      #   imports = [
-      #     inputs.cardano-parts.nixosModules.profile-blockperf
-      #     {
-      #       services.blockperf = {
-      #         publish = false;
-      #         useSopsSecrets = false;
-      #       };
-      #     }
-      #   ];
-      # };
+      bperfNoPublish = {
+        imports = [
+          inputs.cardano-parts.nixosModules.profile-blockperf
+          {
+            services.blockperf = {
+              publish = false;
+              useSopsSecrets = false;
+            };
+          }
+        ];
+      };
     in {
       meta = {
         nixpkgs = import inputs.nixpkgs {
@@ -311,16 +483,19 @@ in
       ];
 
       # Mainnet group
-      mainnet1-rel-au-1 = {imports = [au m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoAu];};
-      mainnet1-rel-br-1 = {imports = [br m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoBr];};
+      mainnet1-rel-au-1 = {imports = [au m6i-2xlarge (ebs 350) (group "mainnet1") node rel topoAu];};
+      mainnet1-rel-br-1 = {imports = [br m6i-2xlarge (ebs 350) (group "mainnet1") node rel topoBr];};
       mainnet1-rel-eu1-1 = {imports = [eu1 m6i-2xlarge (ebs 300) (group "mainnet1") node rel amiZfs];};
       mainnet1-rel-eu1-2 = {imports = [eu1 m6i-2xlarge (ebs 300) (group "mainnet1") node rel amiZfs];};
-      mainnet1-rel-eu3-1 = {imports = [eu3 m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoEu3];};
-      mainnet1-rel-jp-1 = {imports = [jp m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoJp];};
-      mainnet1-rel-sa-1 = {imports = [sa m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoSa];};
-      mainnet1-rel-sg-1 = {imports = [sg m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoSg peerSharingDisabled];};
-      mainnet1-rel-us1-1 = {imports = [us1 m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoUs1];};
-      mainnet1-rel-us2-1 = {imports = [us2 m6i-2xlarge (ebs 300) (group "mainnet1") node rel topoUs2];};
+      mainnet1-rel-eu3-1 = {imports = [eu3 m6i-2xlarge (ebs 350) (group "mainnet1") node rel topoEu3];};
+      mainnet1-rel-jp-1 = {imports = [jp m6i-2xlarge (ebs 350) (group "mainnet1") node rel topoJp];};
+      mainnet1-rel-sa-1 = {imports = [sa m6i-2xlarge (ebs 350) (group "mainnet1") node rel topoSa];};
+      mainnet1-rel-sg-1 = {imports = [sg m6i-2xlarge (ebs 350) (group "mainnet1") node rel topoSg peerSharingDisabled];};
+      mainnet1-rel-us1-1 = {imports = [us1 m6i-2xlarge (ebs 350) (group "mainnet1") node rel topoUs1];};
+      mainnet1-rel-us2-1 = {imports = [us2 m6i-2xlarge (ebs 350) (group "mainnet1") node rel topoUs2];};
+
+      # Leios group, on the leios prototype node as cardano-playground's leios hosts are
+      leios1-rel-eu1-1 = {imports = [eu1 c8id-2xlarge (ebs 300) (nodeRamPct 70) (group "leios1") node-leios leiosRel topoLeiosPlay];};
     };
 
     flake.colmenaHive = inputs.cardano-parts.inputs.colmena.lib.makeHive self.outputs.colmena;
